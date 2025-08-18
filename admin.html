@@ -1,141 +1,473 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>OpenWorks Admin</title>
-  <link rel="stylesheet" href="openworks.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script>
-    const SUPABASE_URL = "";      // fill in
-    const SUPABASE_ANON_KEY = ""; // fill in
-    const ADMIN_EMAIL_DOMAIN = "sutton-ma.gov"; // only allow this domain past the gate
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  </script>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>OpenWorks Sutton — Admin</title>
+<link rel="stylesheet" href="../openworks/openworks.css">
+<style>
+  /* Minimal extras to align with OpenBook vibe */
+  body{background:#f6f8fb;font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;margin:0}
+  .nav{background:#0b1b3a;color:#fff}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px}
+  .nav .wrap{display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:.75rem}
+  .brand img{height:36px;width:auto}
+  .card{background:#fff;border-radius:16px;box-shadow:0 2px 18px rgba(0,0,0,.08);padding:16px}
+  .grid{display:grid;grid-template-columns:1.3fr .9fr;gap:16px}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}}
+  .toolbar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:10px}
+  .toolbar .btn{margin-left:.25rem}
+  .btn{border:1px solid #cdd6e1;background:#fff;border-radius:10px;padding:.5rem .75rem;cursor:pointer}
+  .btn--primary{background:#0b1b3a;color:#fff;border-color:#0b1b3a}
+  .btn--ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}
+  .muted{color:#64748b}
+  .pill{display:inline-block;padding:.15rem .5rem;border-radius:999px;font-size:.8rem;border:1px solid #cdd6e1}
+  .pill--warn{background:#ffe9e6;border-color:#ffb9ac;color:#b32700}
+  table{width:100%;border-collapse:separate;border-spacing:0}
+  th,td{padding:.55rem .6rem;border-bottom:1px solid #edf1f7;font-size:.95rem}
+  th{text-align:left;color:#334155}
+  tr:hover{background:#f9fbff}
+  .row{display:flex;gap:10px}
+  .row > *{flex:1}
+  .field{margin-bottom:.75rem}
+  .field label{display:block;font-weight:600;margin-bottom:.25rem}
+  input[type="text"],input[type="email"],select,textarea{width:100%;padding:.55rem .6rem;border:1px solid #cdd6e1;border-radius:10px;background:#fff}
+  textarea{min-height:90px}
+  .status-badge{border-radius:999px;padding:.15rem .5rem;font-size:.8rem;border:1px solid #cdd6e1}
+  .gallery{display:flex;gap:8px;flex-wrap:wrap}
+  .gallery img{height:72px;border-radius:8px;border:1px solid #e5eaf0}
+  .footer{color:#94a3b8;font-size:.9rem;text-align:center;padding:18px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<header class="nav"><div class="wrap nav__inner"><div class="nav__brand"><img src="https://cyganiewicz.github.io/sutton-portal/assets/logo.png" alt="Town of Sutton"/><div><div class="tag">Town of Sutton</div><h1>OpenWorks Admin</h1></div></div><nav class="nav__links"><a href="index.html">Public</a></nav></div></header>
-<main class="wrap">
-  <section class="card">
-    <div class="flex between center">
-      <div id="auth"></div>
-      <div class="filters">
-        <input id="search" placeholder="Search…"/>
-        <select id="status"><option value="">All</option><option>New</option><option>In Progress</option><option>Completed</option><option>Closed</option></select>
-        <button class="btn" id="mine">Assigned to Me</button>
-        <button class="btn btn--ghost" id="refresh">Refresh</button>
+
+<header class="nav">
+  <div class="wrap">
+    <div class="brand">
+      <!-- Update the logo path if needed -->
+      <img src="../assets/logo.png" alt="Sutton Seal" onerror="this.style.display='none'">
+      <div>
+        <div style="font-weight:700;letter-spacing:.3px">OpenWorks Sutton</div>
+        <div class="muted" style="font-size:.9rem;opacity:.9">Administrative Console</div>
       </div>
     </div>
-  </section>
+    <div id="auth"><button class="btn btn--ghost" disabled>Loading…</button></div>
+  </div>
+</header>
 
-  <section class="grid-2">
-    <div class="card">
-      <table class="table" id="tbl"><thead><tr><th>Ticket</th><th>Status</th><th>Type</th><th>Location</th><th>Assigned</th><th>Updated</th><th></th></tr></thead><tbody></tbody></table>
-    </div>
-    <div class="card">
-      <h3 id="dtTitle">Select a ticket</h3>
-      <div id="dtBody" class="muted">—</div>
-      <div id="dtActions" class="actions" style="display:none">
-        <select id="dStatus"><option>New</option><option>In Progress</option><option>Completed</option><option>Closed</option></select>
-        <input id="dAssigned" placeholder="Assign to"/>
-        <textarea id="dNote" rows="3" placeholder="Add note…"></textarea>
-        <div class="flex gap">
-          <label class="btn btn--ghost">Upload after-photo<input id="afterFile" type="file" accept="image/*" hidden></label>
-          <button class="btn" id="save">Save</button>
-          <button class="btn" id="addNote">Add Note</button>
+<main class="wrap" style="margin-top:16px">
+  <div class="grid">
+    <section class="card">
+      <div class="toolbar">
+        <input id="search" type="text" placeholder="Search ticket, location, description…" style="min-width:220px">
+        <select id="status">
+          <option value="">All statuses</option>
+          <option>New</option>
+          <option>In Progress</option>
+          <option>On Hold</option>
+          <option>Completed</option>
+          <option>Closed</option>
+        </select>
+        <select id="department">
+          <option value="">All departments</option>
+          <option>Highway</option>
+          <option>Sewer</option>
+          <option>Facilities</option>
+          <option>Parks & Rec</option>
+          <option>Solid Waste</option>
+          <option>Other</option>
+        </select>
+        <button id="mine" class="btn">Assigned to Me</button>
+        <button id="refresh" class="btn">Refresh</button>
+        <span id="count" class="muted" style="margin-left:auto"></span>
+      </div>
+
+      <div style="overflow:auto">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Ticket</th>
+              <th>Status</th>
+              <th>Category</th>
+              <th>Title</th>
+              <th>Location</th>
+              <th>Assigned</th>
+              <th>Opened</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td class="muted" colspan="7">No tickets yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="card">
+      <h3 style="margin-top:0">Details</h3>
+      <div id="emptyState" class="muted">Select a ticket to edit.</div>
+      <div id="editor" style="display:none">
+        <div class="field">
+          <label>Ticket</label>
+          <div id="t_ticket" class="pill"></div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>Status</label>
+            <select id="t_status">
+              <option>New</option>
+              <option>In Progress</option>
+              <option>On Hold</option>
+              <option>Completed</option>
+              <option>Closed</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Priority</label>
+            <select id="t_priority">
+              <option>Normal</option>
+              <option>Low</option>
+              <option>High</option>
+              <option>Urgent</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>Assigned To (email)</label>
+            <input id="t_assigned" type="email" placeholder="name@town.sutton.ma.us">
+          </div>
+          <div class="field">
+            <label>Department</label>
+            <select id="t_department">
+              <option></option>
+              <option>Highway</option>
+              <option>Sewer</option>
+              <option>Facilities</option>
+              <option>Parks & Rec</option>
+              <option>Solid Waste</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Title</label>
+          <input id="t_title" type="text" placeholder="Short summary">
+        </div>
+
+        <div class="field">
+          <label>Description</label>
+          <textarea id="t_description" placeholder="Details for field staff…"></textarea>
+        </div>
+
+        <div class="field">
+          <label>Completion Notes (optional)</label>
+          <textarea id="t_notes" placeholder="What was done, materials, follow-ups…"></textarea>
+        </div>
+
+        <div class="row" style="align-items:center">
+          <button id="save" class="btn btn--primary">Save Changes</button>
+          <button id="addNote" class="btn">Add Note</button>
+          <span id="saveMsg" class="muted"></span>
+        </div>
+
+        <hr style="margin:16px 0">
+
+        <div class="field">
+          <label>After‑photos</label>
+          <input id="afterFile" type="file" accept="image/*" multiple>
+          <div id="afterMsg" class="muted" style="margin-top:6px"></div>
+        </div>
+        <div id="afterGallery" class="gallery"></div>
+
+        <hr style="margin:16px 0">
+
+        <div class="field">
+          <label>Notes</label>
+          <div id="notesList" class="muted">No notes yet.</div>
         </div>
       </div>
-    </div>
-  </section>
+    </aside>
+  </div>
 </main>
-<footer class="footer"><div class="wrap">© Town of Sutton • OpenWorks Admin</div></footer>
+
+<div class="footer">© Town of Sutton — OpenWorks</div>
 
 <script>
-let user = null, mineOnly=false, all=[]; let current=null;
+  // ====== CONFIG ======
+  const SUPABASE_URL = "";      // <-- fill in
+  const SUPABASE_ANON_KEY = ""; // <-- fill in
+  const ADMIN_EMAIL_DOMAIN = "town.sutton.ma.us";
 
-async function signIn(){
-  const { data, error } = await sb.auth.signInWithOAuth({ provider: 'google' });
-  if (error) alert(error.message);
-}
-async function signOut(){ await sb.auth.signOut(); location.reload(); }
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-async function requireAuth(){
-  const { data: { user: u } } = await sb.auth.getUser();
-  if (!u) { document.getElementById('auth').innerHTML = '<button class="btn" id="login">Sign in with Google</button>'; document.getElementById('login').onclick=signIn; return false; }
-  const email = u.email||'';
-  if (!email.endsWith('@'+ADMIN_EMAIL_DOMAIN)) { document.getElementById('auth').innerHTML = `<span class="muted">${email}</span> <span class="pill pill--warn">Unauthorized domain</span>`; return false; }
-  user = u; document.getElementById('auth').innerHTML = `<span class="muted">${email}</span> <button class="btn btn--ghost" id="logout">Sign out</button>`; document.getElementById('logout').onclick=signOut; return true;
-}
+  let user = null, mineOnly=false, all=[], current=null;
 
-function pill(s){ return `<span class="pill pill--${s.replace(/\s/g,'').toLowerCase()}">${s}</span>`; }
+  // ====== AUTH (Email magic links) ======
+  async function renderAuth(){
+    const { data: { user: u } } = await sb.auth.getUser();
+    if (!u) {
+      document.getElementById('auth').innerHTML = `
+        <form id="loginForm" class="row" style="align-items:center;gap:.5rem">
+          <input type="email" id="loginEmail" placeholder="you@${ADMIN_EMAIL_DOMAIN}" required style="min-width:240px"/>
+          <button class="btn btn--ghost" type="submit">Email me a sign‑in link</button>
+        </form>`;
+      document.getElementById('loginForm').onsubmit = async (e)=>{
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value.trim();
+        try{
+          const { error } = await sb.auth.signInWithOtp({
+            email,
+            options: { emailRedirectTo: location.href }
+          });
+          if (error) throw error;
+          document.getElementById('auth').innerHTML = '<span class="muted">Check your email for the sign‑in link…</span>';
+        }catch(err){ alert(err.message); }
+      };
+      return false;
+    }
+    // UI domain check (RLS also enforces this server-side)
+    if (!u.email.endsWith('@'+ADMIN_EMAIL_DOMAIN)){
+      document.getElementById('auth').innerHTML =
+        `<span class="muted">${u.email}</span> <span class="pill pill--warn">Unauthorized domain</span>
+         <button class="btn btn--ghost" id="logout">Sign out</button>`;
+      document.getElementById('logout').onclick = async ()=>{ await sb.auth.signOut(); location.reload(); };
+      return false;
+    }
+    user = u;
+    document.getElementById('auth').innerHTML =
+      `<span class="muted">${u.email}</span> <button class="btn btn--ghost" id="logout">Sign out</button>`;
+    document.getElementById('logout').onclick = async ()=>{ await sb.auth.signOut(); location.reload(); };
+    return true;
+  }
 
-async function load(){
-  let q = sb.from('tickets').select('*').order('updated_at',{ascending:false}).limit(500);
-  const s = document.getElementById('status').value; if (s) q = q.eq('status', s);
-  const { data, error } = await q; if (error) { console.error(error); return; }
-  const search = document.getElementById('search').value.trim().toLowerCase();
-  all = (data||[]).filter(r => !mineOnly || (r.assigned_to||'').toLowerCase() === (user?.email||'').toLowerCase())
-                   .filter(r => !search || (r.ticket||'').toLowerCase().includes(search) || (r.location||'').toLowerCase().includes(search) || (r.description||'').toLowerCase().includes(search));
-  render();
-}
+  // pick up magic-link session after redirect and clean the URL hash
+  (async function handleMagicLink(){
+    if (location.hash && location.hash.includes('access_token')){
+      await sb.auth.getSession();
+      history.replaceState({}, '', location.pathname);
+    }
+  })();
 
-function render(){
-  const tbody = document.querySelector('#tbl tbody'); tbody.innerHTML='';
-  all.forEach(r => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${r.ticket}</td><td>${pill(r.status)}</td><td>${r.category||''}</td><td>${r.location||''}</td><td>${r.assigned_to||''}</td><td>${new Date(r.updated_at).toLocaleString()}</td><td><button class="btn btn--ghost">Open</button></td>`;
-    tr.querySelector('button').onclick = ()=> openTicket(r);
-    tbody.appendChild(tr);
-  });
-}
+  // ====== DATA LOADING ======
+  async function load(){
+    if (!user) return;
+    const status = document.getElementById('status').value;
+    const dept = document.getElementById('department').value;
+    const q = document.getElementById('search').value.trim();
 
-function openTicket(r){
-  current = r; document.getElementById('dtTitle').textContent = `${r.ticket} — ${r.category||'Issue'}`;
-  document.getElementById('dtBody').innerHTML = `
-    <div><strong>Location:</strong> ${r.location||''}</div>
-    <div><strong>Status:</strong> ${r.status}</div>
-    <div><strong>Assigned:</strong> ${r.assigned_to||''}</div>
-    <div><strong>Description:</strong><br>${(r.description||'').replace(/\n/g,'<br>')}</div>
-    <div><strong>Reporter:</strong> ${(r.reporter_name||'')}, ${(r.reporter_email||'')}</div>
-  `;
-  document.getElementById('dtActions').style.display='';
-  document.getElementById('dStatus').value = r.status;
-  document.getElementById('dAssigned').value = r.assigned_to||'';
-  document.getElementById('dNote').value = '';
-}
+    let req = sb.from('tickets')
+      .select('*')
+      .order('inserted_at', { ascending:false })
+      .limit(500);
 
-async function save(){
-  if (!current) return;
-  const updates = { status: document.getElementById('dStatus').value, assigned_to: document.getElementById('dAssigned').value };
-  const { error } = await sb.from('tickets').update(updates).eq('id', current.id);
-  if (error) { alert(error.message); return; }
-  await load();
-}
+    if (status) req = req.eq('status', status);
+    if (dept) req = req.eq('department', dept);
+    if (mineOnly) req = req.eq('assigned_to', user.email);
+    if (q){
+      // Search title OR location OR description OR ticket
+      req = req.or(`title.ilike.%${q}%,location.ilike.%${q}%,description.ilike.%${q}%,ticket.ilike.%${q}%`);
+    }
 
-async function addNote(){
-  if (!current) return; const note = document.getElementById('dNote').value.trim(); if (!note) return;
-  const { error } = await sb.from('ticket_notes').insert({ ticket_id: current.id, body: note });
-  if (error) { alert(error.message); return; } document.getElementById('dNote').value='';
-}
+    const { data, error } = await req;
+    if (error){ alert('Load error: '+error.message); return; }
+    all = data || [];
+    renderList();
+  }
 
-async function uploadAfter(){
-  if (!current) return; const f = document.getElementById('afterFile').files[0]; if (!f) return;
-  const path = `${current.id}/after-${Date.now()}-${f.name.replace(/[^a-z0-9.\-_]/gi,'_')}`;
-  const up = await sb.storage.from('openworks-after').upload(path, f, { upsert:true });
-  if (up.error) { alert(up.error.message); return; }
-  await sb.from('ticket_files').insert({ ticket_id: current.id, role: 'after', path });
-  document.getElementById('afterFile').value = '';
-}
+  function renderList(){
+    const tbody = document.getElementById('rows');
+    tbody.innerHTML = '';
+    if (!all.length){
+      tbody.innerHTML = '<tr><td class="muted" colspan="7">No matching tickets.</td></tr>';
+      document.getElementById('count').textContent = '0 tickets';
+      return;
+    }
+    document.getElementById('count').textContent = `${all.length} ticket${all.length!==1?'s':''}`;
 
-document.getElementById('mine').onclick = ()=>{ mineOnly=!mineOnly; document.getElementById('mine').textContent = mineOnly? 'Show All' : 'Assigned to Me'; load(); };
-document.getElementById('refresh').onclick = load;
-document.getElementById('status').onchange = load;
-document.getElementById('search').oninput = ()=>{ clearTimeout(window._t); window._t=setTimeout(load,250); };
-document.getElementById('save').onclick = save;
-document.getElementById('addNote').onclick = addNote;
-document.getElementById('afterFile').onchange = uploadAfter;
+    for(const r of all){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><a href="#" data-id="${r.id}" class="rowlink">${r.ticket||'—'}</a></td>
+        <td><span class="status-badge">${r.status||''}</span></td>
+        <td>${r.category||''}</td>
+        <td>${escapeHtml(r.title||'')}</td>
+        <td>${escapeHtml(r.location||'')}</td>
+        <td>${r.assigned_to||''}</td>
+        <td>${fmtDate(r.inserted_at)}</td>`;
+      tr.querySelector('.rowlink').onclick = (e)=>{ e.preventDefault(); openTicket(r.id); };
+      tbody.appendChild(tr);
+    }
+  }
 
-(async function init(){ if (await requireAuth()) load(); })();
+  // ====== OPEN & RENDER TICKET ======
+  async function openTicket(id){
+    const { data, error } = await sb.from('tickets').select('*').eq('id', id).single();
+    if (error){ alert('Load ticket error: '+error.message); return; }
+    current = data;
+    document.getElementById('emptyState').style.display='none';
+    document.getElementById('editor').style.display='block';
+
+    setVal('t_ticket', current.ticket);
+    setVal('t_status', current.status||'New', true);
+    setVal('t_priority', current.priority||'Normal', true);
+    document.getElementById('t_assigned').value = current.assigned_to||'';
+    setVal('t_department', current.department||'', true);
+    document.getElementById('t_title').value = current.title||'';
+    document.getElementById('t_description').value = current.description||'';
+    document.getElementById('t_notes').value = '';
+
+    document.getElementById('saveMsg').textContent = '';
+    document.getElementById('afterMsg').textContent = '';
+
+    await loadNotes();
+    await loadAfterPhotos();
+  }
+
+  async function loadNotes(){
+    const list = document.getElementById('notesList');
+    list.textContent = 'Loading…';
+    const { data, error } = await sb.from('ticket_notes')
+      .select('*')
+      .eq('ticket_id', current.id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error){ list.textContent = error.message; return; }
+    if (!data.length){ list.textContent = 'No notes yet.'; return; }
+    list.innerHTML = data.map(n => `
+      <div style="margin-bottom:8px">
+        <div class="muted" style="font-size:.85rem">${fmtDate(n.created_at)} • ${escapeHtml(n.created_by||'')}</div>
+        <div>${nl2br(escapeHtml(n.body||''))}</div>
+      </div>`).join('');
+  }
+
+  async function loadAfterPhotos(){
+    const g = document.getElementById('afterGallery');
+    g.innerHTML = '';
+    const { data, error } = await sb.from('ticket_files')
+      .select('*')
+      .eq('ticket_id', current.id)
+      .eq('role', 'after')
+      .order('created_at', { ascending:false })
+      .limit(50);
+    if (error){ g.textContent = error.message; return; }
+    if (!data.length){ g.innerHTML = '<span class="muted">No after‑photos yet.</span>'; return; }
+
+    for (const f of data){
+      // signed URL so only staff can see
+      const { data: urlData, error: urlErr } = await sb.storage
+        .from('openworks-after')
+        .createSignedUrl(f.path, 60*30); // 30 minutes
+      if (!urlErr && urlData?.signedUrl){
+        const img = document.createElement('img');
+        img.src = urlData.signedUrl;
+        img.alt = "after photo";
+        g.appendChild(img);
+      }
+    }
+  }
+
+  // ====== SAVE / NOTES / UPLOAD ======
+  async function save(){
+    if (!current) return;
+    const updates = {
+      status: document.getElementById('t_status').value,
+      priority: document.getElementById('t_priority').value,
+      assigned_to: document.getElementById('t_assigned').value.trim() || null,
+      department: document.getElementById('t_department').value || null,
+      title: document.getElementById('t_title').value.trim() || null,
+      description: document.getElementById('t_description').value.trim() || null
+    };
+    // If marking Completed and no completed_at yet, set it
+    if (updates.status === 'Completed' && !current.completed_at){
+      updates.completed_at = new Date().toISOString();
+    }
+    const { error } = await sb.from('tickets').update(updates).eq('id', current.id);
+    const msg = document.getElementById('saveMsg');
+    if (error){ msg.textContent = error.message; return; }
+    msg.textContent = 'Saved.';
+    await openTicket(current.id);
+    await load();
+  }
+
+  async function addNote(){
+    if (!current) return;
+    const body = document.getElementById('t_notes').value.trim();
+    if (!body){ alert('Type a note first.'); return; }
+    const { error } = await sb.from('ticket_notes').insert({
+      ticket_id: current.id,
+      body,
+      created_by: user.email
+    });
+    if (error){ alert(error.message); return; }
+    document.getElementById('t_notes').value = '';
+    await loadNotes();
+  }
+
+  async function uploadAfter(){
+    if (!current) return;
+    const files = document.getElementById('afterFile').files;
+    if (!files || !files.length) return;
+    const msg = document.getElementById('afterMsg');
+    msg.textContent = 'Uploading…';
+    for (const f of files){
+      const path = `${current.id}/${Date.now()}_${sanitizeFileName(f.name)}`;
+      const { error: upErr } = await sb.storage.from('openworks-after').upload(path, f, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: f.type
+      });
+      if (upErr){ msg.textContent = upErr.message; return; }
+      // record file row
+      const { error: recErr } = await sb.from('ticket_files').insert({
+        ticket_id: current.id,
+        role: 'after',
+        path
+      });
+      if (recErr){ msg.textContent = recErr.message; return; }
+    }
+    msg.textContent = 'Upload complete.';
+    await loadAfterPhotos();
+  }
+
+  // ====== UTIL ======
+  function setVal(id, val, isSelect=false){
+    if (isSelect) {
+      const el = document.getElementById(id);
+      el.value = (val||'');
+      return;
+    }
+    document.getElementById(id).textContent = val||'';
+  }
+  function fmtDate(s){
+    if (!s) return '';
+    try{ const d = new Date(s); return d.toLocaleString(); }catch(e){ return s; }
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function nl2br(s){ return s.replace(/\n/g,'<br>'); }
+  function sanitizeFileName(n){ return n.replace(/[^\w.\-]+/g,'_'); }
+
+  // ====== WIRE UI ======
+  (document.getElementById('mine')||{}).onclick = ()=>{
+    mineOnly=!mineOnly;
+    document.getElementById('mine').textContent = mineOnly? 'Show All' : 'Assigned to Me';
+    load();
+  };
+  (document.getElementById('refresh')||{}).onclick = load;
+  (document.getElementById('status')||{}).onchange = load;
+  (document.getElementById('department')||{}).onchange = load;
+  (document.getElementById('search')||{}).oninput = ()=>{ clearTimeout(window._t); window._t=setTimeout(load,250); };
+  (document.getElementById('save')||{}).onclick = save;
+  (document.getElementById('addNote')||{}).onclick = addNote;
+  (document.getElementById('afterFile')||{}).onchange = uploadAfter;
+
+  (async function init(){
+    if (await renderAuth()) load();
+  })();
 </script>
 </body>
 </html>
