@@ -1,202 +1,38 @@
-/* =========================
-   OpenWorks Sutton — Global CSS
-   Matches OpenBook Sutton aesthetic
-   ========================= */
-
-/* ---- Theme tokens ---- */
 :root{
-  --ink:#0f172a;           /* primary text */
-  --muted:#64748b;         /* secondary text */
-  --bg:#f6f8fb;            /* page background */
-  --card:#ffffff;          /* card background */
-  --nav:#0b1b3a;           /* Sutton deep navy */
-  --accent:#1d4ed8;        /* action/links */
-  --border:#e5e7eb;        /* light borders */
-  --shadow:0 2px 18px rgba(0,0,0,.08);
+  --ink:#0f172a; --muted:#64748b; --bg:#f6f8fb; --card:#fff;
+  --nav:#0b1b3a; --accent:#1d4ed8; --border:#e5e7eb; --shadow:0 2px 18px rgba(0,0,0,.08);
 }
-
-/* ---- Resets ---- */
-*{ box-sizing:border-box; }
-html, body{ margin:0; padding:0; }
-body{
-  font-family:system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color:var(--ink);
-  background:var(--bg);
-  line-height:1.45;
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
-}
-
-/* ---- Layout helpers ---- */
-.wrap{ max-width:1100px; margin:0 auto; padding:0 16px; }
-.flex{ display:flex; }
-.between{ justify-content:space-between; }
-.center{ align-items:center; }
-.gap{ gap:.5rem; }
-.muted{ color:var(--muted); }
-.hidden{ display:none !important; }
-
-/* ---- Header / Nav ---- */
-.nav{ background:var(--nav); color:#fff; }
-.nav__inner{ display:flex; align-items:center; justify-content:space-between; padding:12px 0; }
-.nav__brand{ display:flex; gap:12px; align-items:center; }
-.nav__brand img{ height:40px; width:auto; }
-.nav__brand .tag{ font-size:12px; opacity:.9; }
-.nav__brand h1{ font-size:20px; margin:.1rem 0 0; line-height:1.1; }
-.nav__links{ display:flex; gap:10px; }
-.nav a{ color:#bcd2ff; text-decoration:none; }
-.nav a:hover{ text-decoration:underline; }
-
-/* ---- Buttons ---- */
-.btn{
-  background:var(--accent);
-  color:#fff;
-  border:0;
-  border-radius:999px;
-  padding:10px 14px;
-  cursor:pointer;
-  font-weight:600;
-  transition:transform .02s ease, opacity .15s ease;
-}
-.btn:active{ transform:translateY(1px); }
-.btn[disabled]{ opacity:.6; cursor:not-allowed; }
-.btn--ghost{
-  background:transparent;
-  color:#bcd2ff;
-  border:1px solid rgba(255,255,255,.25);
-}
-.btn--outline{
-  background:#fff; color:var(--ink);
-  border:1px solid var(--border);
-}
-
-/* ---- Cards / Panels ---- */
-.card{
-  background:var(--card);
-  border-radius:16px;
-  box-shadow:var(--shadow);
-  padding:16px;
-  margin:16px 0;
-}
-.toolbar{ display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin-bottom:10px; }
-
-/* ---- Forms ---- */
-label{ display:flex; flex-direction:column; gap:6px; font-size:14px; }
-input, select, textarea{
-  padding:10px;
-  border:1px solid var(--border);
-  border-radius:10px;
-  font-size:14px;
-  background:#fff;
-}
-textarea{ min-height:90px; resize:vertical; }
-.actions{ display:flex; align-items:center; gap:10px; }
-
-/* ---- Grids ---- */
-.grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
-.grid-2{ display:grid; grid-template-columns:2fr 1fr; gap:12px; }
-.span-2{ grid-column:1 / -1; }
-
-/* ---- Tables ---- */
-.table{ width:100%; border-collapse:separate; border-spacing:0; }
-.table th, .table td{
-  padding:.55rem .6rem;
-  border-bottom:1px solid var(--border);
-  text-align:left;
-  font-size:14px;
-}
-.table th{ color:#334155; font-weight:700; }
-.table tr:hover{ background:#f9fbff; }
-
-/* ---- Pills / Badges ---- */
-.pill{
-  display:inline-block;
-  padding:2px 8px;
-  border-radius:999px;
-  font-size:12px;
-  background:#eef2ff;
-  border:1px solid #c7d2fe;
-  white-space:nowrap;
-}
-.pill--warn{ background:#ffe9e6; border-color:#ffc9c0; color:#b32700; }
-.status-badge{
-  border-radius:999px;
-  padding:.15rem .5rem;
-  font-size:.8rem;
-  border:1px solid var(--border);
-  background:#fff;
-}
-.pill--new{ background:#fee2e2; }
-.pill--inprogress{ background:#ffedd5; }
-.pill--onhold{ background:#fde68a; }
-.pill--completed{ background:#dcfce7; }
-.pill--closed{ background:#e0e7ff; }
-
-/* ---- Filters block ---- */
-.filters{ display:flex; gap:8px; align-items:center; }
-
-/* ---- Maps (Leaflet containers) ---- */
-.map{ height:360px; border-radius:16px; overflow:hidden; }
-
-/* ---- Galleries (admin after-photos) ---- */
-.gallery{ display:flex; gap:8px; flex-wrap:wrap; }
-.gallery img{
-  height:72px; width:auto; object-fit:cover;
-  border-radius:8px; border:1px solid #e5eaf0;
-}
-
-/* ---- Footer ---- */
-.footer{
-  padding:24px 0;
-  color:#c9d3e6;
-  background:var(--nav);
-  margin-top:24px;
-  text-align:center;
-  font-size:.95rem;
-}
-
-/* ---- Utility spacing ---- */
-.mt-0{ margin-top:0!important; }
-.mt-8{ margin-top:8px!important; }
-.mt-16{ margin-top:16px!important; }
-.mb-0{ margin-bottom:0!important; }
-.mb-8{ margin-bottom:8px!important; }
-.mb-16{ margin-bottom:16px!important; }
-
-/* ---- Public portal specifics (index.html) ---- */
-.public__header h2{ margin:0 0 8px 0; }
-.public__legend{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-.legend__dot{
-  width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:4px;
-}
-.legend__item{ display:flex; align-items:center; gap:6px; color:var(--muted); font-size:13px; }
-
-/* ---- Admin specifics (admin.html) ---- */
-.admin__grid{ display:grid; grid-template-columns:1.3fr .9fr; gap:16px; }
-@media (max-width:980px){ .admin__grid{ grid-template-columns:1fr; } }
-
-.editor__field{ margin-bottom:.75rem; }
-.editor__row{ display:flex; gap:10px; }
-.editor__row > *{ flex:1; }
-.editor__label{ display:block; font-weight:700; margin-bottom:.25rem; }
-
-/* ---- Links ---- */
-a{ color:var(--accent); }
-a:hover{ opacity:.85; }
-
-/* ---- Responsive tweaks ---- */
-@media (max-width:900px){
-  .grid{ grid-template-columns:1fr; }
-  .grid-2{ grid-template-columns:1fr; }
-  .nav__brand h1{ font-size:18px; }
-  .map{ height:300px; }
-}
-
-/* ---- Small helper for subtle hints ---- */
-.hint{ font-size:12px; color:var(--muted); }
-
-/* ---- Toast-ish message (optional) ---- */
-.toast{
-  display:inline-block; background:#111; color:#fff; padding:.4rem .6rem;
-  border-radius:10px; font-size:.85rem; box-shadow:0 6px 14px rgba(0,0,0,.25);
-}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.45}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+.nav{background:var(--nav);color:#fff}
+.nav__inner{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
+.nav__brand{display:flex;gap:12px;align-items:center}
+.nav__brand img{height:40px}
+.nav__brand .tag{font-size:12px;opacity:.9}
+.nav__brand h1{font-size:20px;margin:.1rem 0 0}
+.nav__links{display:flex;gap:10px}
+.nav a{color:#bcd2ff;text-decoration:none}
+.nav a:hover{text-decoration:underline}
+.card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin:16px 0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.admin__grid{display:grid;grid-template-columns:1.3fr .9fr;gap:16px}
+@media (max-width:900px){.grid{grid-template-columns:1fr}.admin__grid{grid-template-columns:1fr}}
+label{display:flex;flex-direction:column;gap:6px;font-size:14px}
+input,select,textarea{padding:10px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:#fff}
+textarea{min-height:90px}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:999px;padding:10px 14px;cursor:pointer;font-weight:600}
+.btn--ghost{background:transparent;color:#bcd2ff;border:1px solid rgba(255,255,255,.25)}
+.btn--outline{background:#fff;color:var(--ink);border:1px solid var(--border)}
+.filters{display:flex;gap:8px;align-items:center}
+.table{width:100%;border-collapse:separate;border-spacing:0}
+.table th,.table td{padding:.55rem .6rem;border-bottom:1px solid var(--border);text-align:left;font-size:14px}
+.table th{color:#334155;font-weight:700}
+.table tr:hover{background:#f9fbff}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#eef2ff;border:1px solid #c7d2fe;white-space:nowrap}
+.status-badge{border-radius:999px;padding:.15rem .5rem;font-size:.8rem;border:1px solid var(--border);background:#fff}
+.map{height:360px;border-radius:16px;overflow:hidden}
+.muted{color:var(--muted)}
+.footer{padding:24px 0;color:#c9d3e6;background:var(--nav);margin-top:24px;text-align:center;font-size:.95rem}
+.hint{font-size:12px;color:var(--muted)}
+.mt-0{margin-top:0}
