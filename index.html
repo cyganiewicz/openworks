@@ -123,7 +123,7 @@ form.addEventListener('submit', async (e)=>{
         photoDataUrl
       }
     };
-    const res=await fetch(PUBLIC_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const res=await fetch(PUBLIC_API,{method:'POST',headers: { 'Content-Type': 'text/plain' },body:JSON.stringify(payload)});
     const json=await res.json();
     if (json.error) throw new Error(json.error);
     msg.textContent=`Thanks! Your ticket is ${json.ticket}.`;
