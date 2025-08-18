@@ -75,6 +75,16 @@
 <script>
 const ADMIN_API = 'https://script.google.com/a/macros/town.sutton.ma.us/s/AKfycbzcfSJjt_yrQvLytZAWTqGESQ2PfYpdmmjPhzEP0kTqpwRtv-3jLUz5HrmccDaN9E_KNQ/exec'; // ends with /exec
 
+// ---- Helper: safe file -> data URL (prevents call stack overflow) ----
+function fileToDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);   // already "data:*;base64,...."
+    r.onerror = () => reject(r.error || new Error('File read failed'));
+    r.readAsDataURL(file);
+  });
+}
+
 async function apiGet(action){
   const url=new URL(ADMIN_API); url.searchParams.set('action',action);
   const res=await fetch(url); return res.json();
@@ -162,9 +172,12 @@ document.getElementById('afterFile').addEventListener('change', async (e)=>{
   document.getElementById('afterMsg').textContent='Uploading…';
   try{
     for (const f of files){
-      const buf=await f.arrayBuffer();
-      const b64=btoa(String.fromCharCode(...new Uint8Array(buf)));
-      const photoDataUrl=`data:${f.type};base64,${b64}`;
+      // optional size guard (8 MB per file)
+      if (f.size > 8 * 1024 * 1024) {
+        throw new Error(`"${f.name}" is larger than 8 MB`);
+      }
+      // Use FileReader to avoid stack overflow
+      const photoDataUrl = await fileToDataURL(f);
       const res=await apiPost('add_photo_after',{ticket:current.Ticket,photoDataUrl});
       if (res.error) throw new Error(res.error);
     }
