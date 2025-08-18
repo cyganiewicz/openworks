@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>OpenWorks Admin</title>
+  <link rel="stylesheet" href="openworks.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script>
+    const SUPABASE_URL = "";      // fill in
+    const SUPABASE_ANON_KEY = ""; // fill in
+    const ADMIN_EMAIL_DOMAIN = "sutton-ma.gov"; // only allow this domain past the gate
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  </script>
+</head>
+<body>
+<header class="nav"><div class="wrap nav__inner"><div class="nav__brand"><img src="https://cyganiewicz.github.io/sutton-portal/assets/logo.png" alt="Town of Sutton"/><div><div class="tag">Town of Sutton</div><h1>OpenWorks Admin</h1></div></div><nav class="nav__links"><a href="index.html">Public</a></nav></div></header>
+<main class="wrap">
+  <section class="card">
+    <div class="flex between center">
+      <div id="auth"></div>
+      <div class="filters">
+        <input id="search" placeholder="Search…"/>
+        <select id="status"><option value="">All</option><option>New</option><option>In Progress</option><option>Completed</option><option>Closed</option></select>
+        <button class="btn" id="mine">Assigned to Me</button>
+        <button class="btn btn--ghost" id="refresh">Refresh</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="card">
+      <table class="table" id="tbl"><thead><tr><th>Ticket</th><th>Status</th><th>Type</th><th>Location</th><th>Assigned</th><th>Updated</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <h3 id="dtTitle">Select a ticket</h3>
+      <div id="dtBody" class="muted">—</div>
+      <div id="dtActions" class="actions" style="display:none">
+        <select id="dStatus"><option>New</option><option>In Progress</option><option>Completed</option><option>Closed</option></select>
+        <input id="dAssigned" placeholder="Assign to"/>
+        <textarea id="dNote" rows="3" placeholder="Add note…"></textarea>
+        <div class="flex gap">
+          <label class="btn btn--ghost">Upload after-photo<input id="afterFile" type="file" accept="image/*" hidden></label>
+          <button class="btn" id="save">Save</button>
+          <button class="btn" id="addNote">Add Note</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer class="footer"><div class="wrap">© Town of Sutton • OpenWorks Admin</div></footer>
+
+<script>
+let user = null, mineOnly=false, all=[]; let current=null;
+
+async function signIn(){
+  const { data, error } = await sb.auth.signInWithOAuth({ provider: 'google' });
+  if (error) alert(error.message);
+}
+async function signOut(){ await sb.auth.signOut(); location.reload(); }
+
+async function requireAuth(){
+  const { data: { user: u } } = await sb.auth.getUser();
+  if (!u) { document.getElementById('auth').innerHTML = '<button class="btn" id="login">Sign in with Google</button>'; document.getElementById('login').onclick=signIn; return false; }
+  const email = u.email||'';
+  if (!email.endsWith('@'+ADMIN_EMAIL_DOMAIN)) { document.getElementById('auth').innerHTML = `<span class="muted">${email}</span> <span class="pill pill--warn">Unauthorized domain</span>`; return false; }
+  user = u; document.getElementById('auth').innerHTML = `<span class="muted">${email}</span> <button class="btn btn--ghost" id="logout">Sign out</button>`; document.getElementById('logout').onclick=signOut; return true;
+}
+
+function pill(s){ return `<span class="pill pill--${s.replace(/\s/g,'').toLowerCase()}">${s}</span>`; }
+
+async function load(){
+  let q = sb.from('tickets').select('*').order('updated_at',{ascending:false}).limit(500);
+  const s = document.getElementById('status').value; if (s) q = q.eq('status', s);
+  const { data, error } = await q; if (error) { console.error(error); return; }
+  const search = document.getElementById('search').value.trim().toLowerCase();
+  all = (data||[]).filter(r => !mineOnly || (r.assigned_to||'').toLowerCase() === (user?.email||'').toLowerCase())
+                   .filter(r => !search || (r.ticket||'').toLowerCase().includes(search) || (r.location||'').toLowerCase().includes(search) || (r.description||'').toLowerCase().includes(search));
+  render();
+}
+
+function render(){
+  const tbody = document.querySelector('#tbl tbody'); tbody.innerHTML='';
+  all.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.ticket}</td><td>${pill(r.status)}</td><td>${r.category||''}</td><td>${r.location||''}</td><td>${r.assigned_to||''}</td><td>${new Date(r.updated_at).toLocaleString()}</td><td><button class="btn btn--ghost">Open</button></td>`;
+    tr.querySelector('button').onclick = ()=> openTicket(r);
+    tbody.appendChild(tr);
+  });
+}
+
+function openTicket(r){
+  current = r; document.getElementById('dtTitle').textContent = `${r.ticket} — ${r.category||'Issue'}`;
+  document.getElementById('dtBody').innerHTML = `
+    <div><strong>Location:</strong> ${r.location||''}</div>
+    <div><strong>Status:</strong> ${r.status}</div>
+    <div><strong>Assigned:</strong> ${r.assigned_to||''}</div>
+    <div><strong>Description:</strong><br>${(r.description||'').replace(/\n/g,'<br>')}</div>
+    <div><strong>Reporter:</strong> ${(r.reporter_name||'')}, ${(r.reporter_email||'')}</div>
+  `;
+  document.getElementById('dtActions').style.display='';
+  document.getElementById('dStatus').value = r.status;
+  document.getElementById('dAssigned').value = r.assigned_to||'';
+  document.getElementById('dNote').value = '';
+}
+
+async function save(){
+  if (!current) return;
+  const updates = { status: document.getElementById('dStatus').value, assigned_to: document.getElementById('dAssigned').value };
+  const { error } = await sb.from('tickets').update(updates).eq('id', current.id);
+  if (error) { alert(error.message); return; }
+  await load();
+}
+
+async function addNote(){
+  if (!current) return; const note = document.getElementById('dNote').value.trim(); if (!note) return;
+  const { error } = await sb.from('ticket_notes').insert({ ticket_id: current.id, body: note });
+  if (error) { alert(error.message); return; } document.getElementById('dNote').value='';
+}
+
+async function uploadAfter(){
+  if (!current) return; const f = document.getElementById('afterFile').files[0]; if (!f) return;
+  const path = `${current.id}/after-${Date.now()}-${f.name.replace(/[^a-z0-9.\-_]/gi,'_')}`;
+  const up = await sb.storage.from('openworks-after').upload(path, f, { upsert:true });
+  if (up.error) { alert(up.error.message); return; }
+  await sb.from('ticket_files').insert({ ticket_id: current.id, role: 'after', path });
+  document.getElementById('afterFile').value = '';
+}
+
+document.getElementById('mine').onclick = ()=>{ mineOnly=!mineOnly; document.getElementById('mine').textContent = mineOnly? 'Show All' : 'Assigned to Me'; load(); };
+document.getElementById('refresh').onclick = load;
+document.getElementById('status').onchange = load;
+document.getElementById('search').oninput = ()=>{ clearTimeout(window._t); window._t=setTimeout(load,250); };
+document.getElementById('save').onclick = save;
+document.getElementById('addNote').onclick = addNote;
+document.getElementById('afterFile').onchange = uploadAfter;
+
+(async function init(){ if (await requireAuth()) load(); })();
+</script>
+</body>
+</html>
