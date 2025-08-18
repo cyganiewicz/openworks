@@ -138,5 +138,32 @@
   document.getElementById('categoryFilter').addEventListener('change', loadPublicMap);
   loadPublicMap();
 </script>
+  <script>
+async function submitTicket(fd) {
+  const { error } = await sb
+    .from('tickets')
+    .insert({
+      status: 'New',
+      priority: fd.get('priority') || 'Normal',
+      category: fd.get('category'),
+      title: (fd.get('category') || 'Issue') + ' — ' + (fd.get('address') || ''),
+      description: fd.get('description'),
+      location: fd.get('address'),
+      lat: fd.get('lat') || null,
+      lng: fd.get('lng') || null,
+      reporter_name: fd.get('name'),
+      reporter_email: fd.get('email'),
+      reporter_phone: fd.get('phone')
+    });
+
+  if (error) {
+    console.error('Insert failed:', error);
+    alert('Error: ' + error.message);
+  } else {
+    alert('Ticket submitted successfully!');
+  }
+}
+</script>
+
 </body>
 </html>
