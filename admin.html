@@ -90,7 +90,7 @@ async function apiGet(action){
   const res=await fetch(url); return res.json();
 }
 async function apiPost(action,data){
-  const res=await fetch(ADMIN_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,data})});
+  const res=await fetch(ADMIN_API,{method:'POST',headers: { 'Content-Type': 'text/plain' },body:JSON.stringify({action,data})});
   return res.json();
 }
 function fmtDate(s){ try{ return new Date(s).toLocaleString(); }catch(e){ return s||''; } }
