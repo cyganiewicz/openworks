@@ -1,169 +1,139 @@
-<!-- ========================= 1) openworks/index.html ========================= -->
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>OpenWorks Sutton</title>
-  <link rel="stylesheet" href="openworks.css"/>
-  <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Supabase JS -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script>
-    // ===== ENV (fill these in) =====
-    const SUPABASE_URL = "https://wgvmsigixjufdsmrribs.supabase.co";        // e.g., https://abcxyz.supabase.co
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indndm1zaWdpeGp1ZmRzbXJyaWJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MDk5NDgsImV4cCI6MjA3MTA4NTk0OH0.chKM4Mxct4vgA06Wxajitn17SwWphTxt6gQQcoDGDEQ";   // Project anon key
-    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  </script>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>OpenWorks Sutton</title>
+<link rel="stylesheet" href="openworks.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 <header class="nav">
   <div class="wrap nav__inner">
     <div class="nav__brand">
-      <img src="https://cyganiewicz.github.io/sutton-portal/assets/logo.png" alt="Town of Sutton"/>
-      <div>
-        <div class="tag">Town of Sutton</div>
-        <h1>OpenWorks Sutton</h1>
-      </div>
+      <img src="../assets/logo.png" onerror="this.style.display='none'" alt="">
+      <div><div class="tag">Town of Sutton</div><h1>OpenWorks Sutton</h1></div>
     </div>
-    <nav class="nav__links">
-      <a href="/sutton-portal/index.html">OpenBook</a>
-      <a class="btn btn--ghost" href="admin.html">Staff Admin</a>
-    </nav>
+    <nav class="nav__links"><a class="btn btn--ghost" href="admin.html">Staff Admin</a></nav>
   </div>
 </header>
 
 <main class="wrap">
   <section class="card">
-    <h2>Report an Issue</h2>
-    <form id="reportForm" class="grid">
+    <h2 class="mt-0">Report an Issue</h2>
+    <form id="f" class="grid">
       <label>Full Name<input name="name" required></label>
       <label>Email<input name="email" type="email" required></label>
       <label>Phone<input name="phone" type="tel"></label>
-      <label class="span-2">Location / Address<input name="address" placeholder="123 Main St"></label>
+      <label class="span-2">Location / Address<input name="location" placeholder="123 Main St" required></label>
       <label>Issue Type
         <select name="category" required>
           <option>Pothole</option><option>Tree Removal</option><option>Streetlight</option>
           <option>Trash</option><option>Facilities</option><option>Sewer</option><option>Other</option>
-        </select>
-      </label>
+        </select></label>
       <label>Priority
-        <select name="priority"><option>Normal</option><option>Low</option><option>High</option><option>Urgent</option></select>
-      </label>
+        <select name="priority"><option>Normal</option><option>Low</option><option>High</option><option>Urgent</option></select></label>
       <label class="span-2">Description<textarea name="description" rows="3" required></textarea></label>
       <div class="span-2">
-        <div class="muted">Click the map to set the exact location (optional).</div>
-        <div id="map" class="map"></div>
-        <input type="hidden" name="lat" id="lat"><input type="hidden" name="lng" id="lng">
+        <div class="muted">Click the map to set exact location (optional).</div>
+        <div id="pickMap" class="map"></div>
+        <input type="hidden" name="lat"><input type="hidden" name="lng">
       </div>
-      <label class="span-2">Photo (optional)
-        <input type="file" id="photo" accept="image/*">
+      <label class="span-2">Optional Photo
+        <input id="photo" type="file" accept="image/*">
+        <div class="hint">Photo will be stored under the ticket’s folder in Drive.</div>
       </label>
-      <div class="actions span-2"><button class="btn" type="submit">Submit Request</button><span id="formMsg" class="muted"></span></div>
+      <div class="actions span-2">
+        <button class="btn" type="submit">Submit Request</button>
+        <span id="msg" class="muted"></span>
+      </div>
     </form>
   </section>
 
   <section class="card">
     <div class="flex between center">
-      <h2>Recent Requests</h2>
+      <h2 class="mt-0">Recent Requests</h2>
       <div class="filters">
-        <select id="statusFilter"><option value="">All Statuses</option><option>New</option><option>In Progress</option><option>Completed</option><option>Closed</option></select>
-        <select id="categoryFilter"><option value="">All Categories</option><option>Pothole</option><option>Tree Removal</option><option>Streetlight</option><option>Trash</option><option>Facilities</option><option>Sewer</option><option>Other</option></select>
+        <select id="status"><option value="">All</option><option>New</option><option>In Progress</option><option>Completed</option><option>Closed</option></select>
+        <select id="cat"><option value="">All Types</option><option>Pothole</option><option>Tree Removal</option><option>Streetlight</option><option>Trash</option><option>Facilities</option><option>Sewer</option><option>Other</option></select>
       </div>
     </div>
-    <div id="publicMap" class="map"></div>
+    <div id="pubMap" class="map"></div>
   </section>
 </main>
 
 <footer class="footer"><div class="wrap">© Town of Sutton • OpenWorks</div></footer>
 
 <script>
-  // ===== Map (picker) =====
-  let pickMap = L.map('map').setView([42.1501,-71.7620], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(pickMap);
-  let pickMarker=null; pickMap.on('click', (e)=>{ if(pickMarker) pickMap.removeLayer(pickMarker); pickMarker=L.marker(e.latlng).addTo(pickMap); lat.value=e.latlng.lat; lng.value=e.latlng.lng; });
+const PUBLIC_API = 'https://script.google.com/macros/s/AKfycbyAgYmATzzTO1LiTeCRUQMHkXoHSjkFBdnubVsdrrAxVRfij9qHGMHfsdZ7AhtOGSOw1A/exec'; // ends with /exec
 
-  // ===== Submit handler =====
-  const form = document.getElementById('reportForm');
-  const msg = document.getElementById('formMsg');
-  form.addEventListener('submit', async (e)=>{
-    e.preventDefault(); msg.textContent='Submitting…';
-    try {
-      const fd = new FormData(form);
-      // 1) create ticket row
-      const { data: ticket, error } = await sb.from('tickets').insert({
-        status: 'New', priority: fd.get('priority')||'Normal', category: fd.get('category'),
-        title: fd.get('category')+ ' issue', description: fd.get('description'),
-        location: fd.get('address'), lat: fd.get('lat')||null, lng: fd.get('lng')||null,
-        reporter_name: fd.get('name'), reporter_email: fd.get('email'), reporter_phone: fd.get('phone')
-      }).select().single();
-      if (error) throw error;
-      // 2) upload photo if present (public bucket)
-      const file = document.getElementById('photo').files[0];
-      if (file) {
-        const path = `${ticket.id}/before-${Date.now()}-${file.name.replace(/[^a-z0-9.\-_]/gi,'_')}`;
-        const up = await sb.storage.from('openworks-before').upload(path, file, { upsert: true, cacheControl: '3600' });
-        if (!up.error) {
-          await sb.from('ticket_files').insert({ ticket_id: ticket.id, role: 'before', path });
-        }
+// Leaflet picker
+let pick = L.map('pickMap').setView([42.1501,-71.7620], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(pick);
+let pMarker=null;
+pick.on('click',(e)=>{ if(pMarker) pick.removeLayer(pMarker); pMarker=L.marker(e.latlng).addTo(pick);
+  document.querySelector('input[name=lat]').value=e.latlng.lat;
+  document.querySelector('input[name=lng]').value=e.latlng.lng; });
+
+// Submit
+const form=document.getElementById('f'), msg=document.getElementById('msg');
+form.addEventListener('submit', async (e)=>{
+  e.preventDefault(); msg.textContent='Submitting…';
+  try{
+    const fd = new FormData(form);
+    let photoDataUrl='';
+    const file=document.getElementById('photo').files[0];
+    if (file){
+      const buf=await file.arrayBuffer();
+      const b64=btoa(String.fromCharCode(...new Uint8Array(buf)));
+      photoDataUrl=`data:${file.type};base64,${b64}`;
+    }
+    const payload = {
+      action:'create_ticket',
+      data:{
+        status:'New',
+        priority:fd.get('priority')||'Normal',
+        category:fd.get('category'),
+        title:(fd.get('category')||'Issue') + ' — ' + (fd.get('location')||''),
+        description:fd.get('description'),
+        location:fd.get('location'),
+        lat:fd.get('lat')||'',
+        lng:fd.get('lng')||'',
+        name:fd.get('name'),
+        email:fd.get('email'),
+        phone:fd.get('phone'),
+        photoDataUrl
       }
-      msg.textContent='Thanks! Your request was submitted.'; form.reset(); if(pickMarker){ pickMap.removeLayer(pickMarker); pickMarker=null; }
-      await loadPublicMap();
-    } catch (err) { console.error(err); msg.textContent = 'Error: '+(err.message||err); }
+    };
+    const res=await fetch(PUBLIC_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const json=await res.json();
+    if (json.error) throw new Error(json.error);
+    msg.textContent=`Thanks! Your ticket is ${json.ticket}.`;
+    form.reset(); if(pMarker){ pick.removeLayer(pMarker); pMarker=null; }
+    loadPublic();
+  }catch(err){ console.error(err); msg.textContent='Error: '+err.message; }
+});
+
+// Public map
+let pub=L.map('pubMap').setView([42.1501,-71.7620], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(pub);
+let layer=L.layerGroup().addTo(pub);
+function color(s){ return ({'New':'red','In Progress':'orange','Completed':'green','Closed':'blue'})[s]||'purple'; }
+async function loadPublic(){
+  const url=new URL(PUBLIC_API); url.searchParams.set('action','list_public');
+  const res=await fetch(url); const json=await res.json(); const s=document.getElementById('status').value; const c=document.getElementById('cat').value;
+  const items=(json.items||[]).filter(r=>(!s||r.status===s)&&(!c||r.category===c));
+  layer.clearLayers();
+  items.filter(r=>r.lat&&r.lng).forEach(r=>{
+    const m=L.circleMarker([r.lat,r.lng],{radius:8,color:color(r.status)});
+    m.bindPopup(`<b>${r.title||'Issue'}</b><br>${r.category} • ${r.status}<br>${r.location||''}`);
+    layer.addLayer(m);
   });
-
-  // ===== Public map (list tickets) =====
-  let pubMap = L.map('publicMap').setView([42.1501,-71.7620], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(pubMap);
-  let layers = L.layerGroup().addTo(pubMap);
-  function colorByStatus(s){ return { 'New':'red','In Progress':'orange','Completed':'green','Closed':'blue' }[s]||'purple'; }
-
-  async function loadPublicMap(){
-    layers.clearLayers();
-    const s = document.getElementById('statusFilter').value; const c = document.getElementById('categoryFilter').value;
-    let q = sb.from('tickets_public').select('*'); // tickets_public is a SECURITY VIEW without PII
-    if (s) q = q.eq('status', s);
-    if (c) q = q.eq('category', c);
-    const { data, error } = await q.limit(500);
-    if (error) { console.error(error); return; }
-    data.filter(r=>r.lat && r.lng).forEach(r=>{
-      const m = L.circleMarker([r.lat, r.lng], { radius: 8, color: colorByStatus(r.status) });
-      m.bindPopup(`<b>${r.title||'Issue'}</b><br>${r.category} • ${r.status}<br>${r.location||''}`);
-      layers.addLayer(m);
-    });
-  }
-  document.getElementById('statusFilter').addEventListener('change', loadPublicMap);
-  document.getElementById('categoryFilter').addEventListener('change', loadPublicMap);
-  loadPublicMap();
-</script>
-  <script>
-async function submitTicket(fd) {
-  const { error } = await sb
-    .from('tickets')
-    .insert({
-      status: 'New',
-      priority: fd.get('priority') || 'Normal',
-      category: fd.get('category'),
-      title: (fd.get('category') || 'Issue') + ' — ' + (fd.get('address') || ''),
-      description: fd.get('description'),
-      location: fd.get('address'),
-      lat: fd.get('lat') || null,
-      lng: fd.get('lng') || null,
-      reporter_name: fd.get('name'),
-      reporter_email: fd.get('email'),
-      reporter_phone: fd.get('phone')
-    });
-
-  if (error) {
-    console.error('Insert failed:', error);
-    alert('Error: ' + error.message);
-  } else {
-    alert('Ticket submitted successfully!');
-  }
 }
+document.getElementById('status').onchange=loadPublic;
+document.getElementById('cat').onchange=loadPublic;
+loadPublic();
 </script>
-
 </body>
 </html>
