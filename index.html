@@ -68,6 +68,16 @@
 <script>
 const PUBLIC_API = 'https://script.google.com/macros/s/AKfycbyAgYmATzzTO1LiTeCRUQMHkXoHSjkFBdnubVsdrrAxVRfij9qHGMHfsdZ7AhtOGSOw1A/exec'; // ends with /exec
 
+// ---- Helper: safe file -> data URL (prevents call stack overflow) ----
+function fileToDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);  // already "data:*;base64,...."
+    r.onerror = () => reject(r.error || new Error('File read failed'));
+    r.readAsDataURL(file);
+  });
+}
+
 // Leaflet picker
 let pick = L.map('pickMap').setView([42.1501,-71.7620], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(pick);
@@ -82,13 +92,20 @@ form.addEventListener('submit', async (e)=>{
   e.preventDefault(); msg.textContent='Submitting…';
   try{
     const fd = new FormData(form);
-    let photoDataUrl='';
+
+    // optional size guard (8 MB)
     const file=document.getElementById('photo').files[0];
-    if (file){
-      const buf=await file.arrayBuffer();
-      const b64=btoa(String.fromCharCode(...new Uint8Array(buf)));
-      photoDataUrl=`data:${file.type};base64,${b64}`;
+    if (file && file.size > 8 * 1024 * 1024) {
+      msg.textContent = 'Please choose a photo under 8 MB.';
+      return;
     }
+
+    let photoDataUrl = '';
+    if (file){
+      // Use FileReader to avoid stack overflow
+      photoDataUrl = await fileToDataURL(file);
+    }
+
     const payload = {
       action:'create_ticket',
       data:{
