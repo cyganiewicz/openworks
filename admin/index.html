@@ -6,9 +6,6 @@
 <title>OpenWorks Admin</title>
 <meta name="robots" content="noindex, nofollow">
 
-<!-- Google Identity Services -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
@@ -67,11 +64,11 @@
 
   <!-- AUTH -->
   <div class="row" id="authRow">
-    <!-- 1) Always-visible fallback button -->
-    <button id="fallbackSignIn" class="btn">Sign in</button>
-    <!-- 2) Official Google button mounts here (shown when script loads) -->
-    <div id="gsi" style="min-width:200px; min-height:40px; display:none"></div>
-    <!-- 3) Signed-in chip + sign-out -->
+    <!-- Always-visible fallback -->
+    <button id="fallbackSignIn" class="btn" onclick="OWAuth.trySignIn()">Sign in</button>
+    <!-- Official Google button mounts here when script loads -->
+    <div id="gsi" style="min-width:220px; min-height:40px; display:none"></div>
+    <!-- Signed-in chip + sign-out -->
     <span id="me" class="chip" style="display:none"></span>
     <button id="signout" class="ghost" style="display:none">Sign out</button>
   </div>
@@ -203,7 +200,7 @@ const TOK_KEY = 'ow_id_token';
 
 let idToken=null, dataset=[], current=null, gsiLoaded=false;
 
-/* ===== Helpers ===== */
+/* ===== Utilities ===== */
 const $ = (s)=>document.querySelector(s);
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function fmtDT(x){ if(!x) return ''; const d=new Date(x); return isNaN(d)? String(x): d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}); }
@@ -485,7 +482,7 @@ async function plotMap(){
   }catch(_){}
 }
 
-/* ===== Auth UI (with watchdog) ===== */
+/* ===== Auth UI ===== */
 function renderAuthUI(){
   const email = idToken ? decodeEmailFromToken(idToken) : '';
   const me = document.getElementById('me');
@@ -506,60 +503,73 @@ document.getElementById('signout').addEventListener('click', ()=>{
   setToken(''); document.getElementById('rows').innerHTML=''; document.getElementById('count').textContent='—'; document.getElementById('empty').style.display='block';
 });
 
-/* Fallback sign-in (works when GSI exists; otherwise shows a help banner) */
-document.getElementById('fallbackSignIn').addEventListener('click', ()=>{
-  if(window.google && google.accounts && google.accounts.id){
-    google.accounts.id.prompt();
-  }else{
-    showError('Google sign-in script is blocked or still loading. Allow https://accounts.google.com and ensure your OAuth Client’s Authorized JavaScript origin includes https://openworks.suttonma.gov . Then refresh.');
-  }
-});
-
-/* Initialize GSI, render official button, and add a watchdog */
-function initGSI(){
-  const gsiBox = document.getElementById('gsi');
-  const fb = document.getElementById('fallbackSignIn');
-
-  const tryInit = () => {
-    if(!(window.google && google.accounts && google.accounts.id)){ return false; }
-    gsiLoaded = true;
-    google.accounts.id.initialize({
-      client_id: CLIENT_ID,
-      callback: (resp)=>{ setToken(resp.credential); refresh().then(()=>{ensureMap(); plotMap();}); }
+/* ===== Auth loader / fallback ===== */
+const OWAuth = {
+  injectScript: function(){
+    return new Promise((resolve,reject)=>{
+      if(window.google && google.accounts && google.accounts.id) return resolve('already');
+      const s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true; s.defer = true;
+      s.onload = ()=> resolve('loaded');
+      s.onerror = ()=> reject(new Error('Failed to load Google script. Check that your browser/extension allows https://accounts.google.com and the page is served over HTTPS.'));
+      document.head.appendChild(s);
     });
-    gsiBox.style.display='inline-block';
-    gsiBox.innerHTML='';
-    google.accounts.id.renderButton(gsiBox, { theme:'outline', size:'large' });
-    fb.style.display='none'; // hide fallback once official button is ready
-    setDebug();
-    // use saved token if present
-    const saved = getSavedToken();
-    if(saved){ setToken(saved); refresh().then(()=>{ensureMap(); plotMap();}); }
-    return true;
-  };
-
-  // Attempt now, then keep trying briefly
-  if(!tryInit()){
-    let tries = 0;
-    const t = setInterval(()=>{
-      tries++;
-      if(tryInit()) { clearInterval(t); }
-      if(tries>=20){ // ~3s watchdog
-        clearInterval(t);
-        setDebug();
-        showError('Google sign-in failed to initialize. Check that the browser allows scripts from accounts.google.com, the page is served over HTTPS, and your OAuth Client has Authorized JavaScript origin: https://openworks.suttonma.gov');
-      }
-    }, 150);
+  },
+  initGSI: function(){
+    try{
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: (resp)=>{ setToken(resp.credential); refresh().then(()=>{ensureMap(); plotMap();}); }
+      });
+      const gsiBox = document.getElementById('gsi');
+      gsiBox.style.display='inline-block';
+      gsiBox.innerHTML='';
+      google.accounts.id.renderButton(gsiBox, { theme:'outline', size:'large' });
+      document.getElementById('fallbackSignIn').style.display='none';
+      gsiLoaded = true; setDebug();
+      const saved = getSavedToken();
+      if(saved){ setToken(saved); refresh().then(()=>{ensureMap(); plotMap();}); }
+      return true;
+    }catch(err){
+      return false;
+    }
+  },
+  trySignIn: async function(){
+    clearError();
+    // 1) Make sure the script is present
+    try{ await OWAuth.injectScript(); }catch(e){ showError(e.message); setDebug(); return; }
+    // 2) Initialize and render
+    if(!OWAuth.initGSI()){
+      showError('Google sign-in failed to initialize. Ensure Authorized JavaScript origin in your OAuth client equals https://openworks.suttonma.gov .'); setDebug(); return;
+    }
+    // 3) Prompt sign-in
+    try{
+      google.accounts.id.prompt(); // One-tap / popup
+    }catch(e){
+      showError('Could not open Google sign-in. Popups may be blocked. Allow popups for this site.'); setDebug();
+    }
   }
-}
+};
+window.OWAuth = OWAuth;
 
-/* Boot */
-window.addEventListener('DOMContentLoaded', ()=>{
+/* ===== Boot ===== */
+window.addEventListener('DOMContentLoaded', async ()=>{
+  // If token saved, use it immediately (even before sign-in UI)
   const saved = getSavedToken(); if(saved) setToken(saved);
   renderAuthUI();
-  initGSI();
-  // If already signed in, load immediately
-  if(idToken){ refresh().then(()=>{ensureMap(); plotMap();}); }
+  setDebug();
+
+  // Try to auto-load Google script; if blocked, green button will show error on click
+  try{
+    await OWAuth.injectScript();
+    if(OWAuth.initGSI()){
+      // already signed in? then load
+      if(idToken){ refresh().then(()=>{ensureMap(); plotMap();}); }
+    }
+  }catch(_){
+    // ignore; clicking the green button will show a precise error
+  }
 });
 </script>
 </body>
