@@ -64,8 +64,8 @@
 
   <!-- AUTH -->
   <div class="row" id="authRow">
-    <!-- Always-visible fallback -->
-    <button id="fallbackSignIn" class="btn" onclick="OWAuth.trySignIn()">Sign in</button>
+    <!-- Always-visible fallback (no inline onclick) -->
+    <button id="fallbackSignIn" class="btn">Sign in</button>
     <!-- Official Google button mounts here when script loads -->
     <div id="gsi" style="min-width:220px; min-height:40px; display:none"></div>
     <!-- Signed-in chip + sign-out -->
@@ -271,13 +271,15 @@ function renderRows(list){
       <td>${displayAddress(r)}</td>
       <td>${r.reporter_name||''}<div class="muted" style="font-size:.85rem">${r.reporter_email||''}</div></td>
       <td>${fmtDT(r.last_updated_at || r.timestamp)}</td>
-      <td><button type="button" class="btn small open" data-idx="${idx}" onclick="OW.openByIdx(${idx});return false;">Open</button></td>`;
+      <td><button type="button" class="btn small open" data-idx="${idx}">Open</button></td>`;
     tb.appendChild(tr);
   });
 }
 document.getElementById('rows').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button.open');
+  if(btn && btn.dataset.idx){ e.preventDefault(); OW.openByIdx(parseInt(btn.dataset.idx,10)); return; }
   const row = e.target.closest('tr[data-idx]');
-  if(row && !e.target.closest('button')){ e.preventDefault(); OW.openByIdx(parseInt(row.dataset.idx,10)); }
+  if(row){ e.preventDefault(); OW.openByIdx(parseInt(row.dataset.idx,10)); }
 });
 
 /* ===== Address display (fallback to Sutton) ===== */
@@ -471,8 +473,12 @@ async function plotMap(){
       <b>${r.ticket_id || '(no id)'}</b><br>
       ${r.status || ''} • ${r.category || ''}<br>
       ${safeAddr}<br>
-      <button type="button" data-idx="${idx}" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid #e6ebf2;background:#fff0;cursor:pointer" onclick="OW.openByIdx(${idx});return false;">Open</button>
+      <button type="button" data-idx="${idx}" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid #e6ebf2;background:#fff0;cursor:pointer">Open</button>
     `);
+    m.on('popupopen', (ev)=>{
+      const btn = ev.popup.getElement().querySelector('button[data-idx]');
+      if(btn){ btn.addEventListener('click', ()=> OW.openByIdx(idx)); }
+    });
     m.on('click', ()=> OW.openByIdx(idx));
     markersLayer.addLayer(m);
   });
@@ -512,7 +518,7 @@ const OWAuth = {
       s.src = 'https://accounts.google.com/gsi/client';
       s.async = true; s.defer = true;
       s.onload = ()=> resolve('loaded');
-      s.onerror = ()=> reject(new Error('Failed to load Google script. Check that your browser/extension allows https://accounts.google.com and the page is served over HTTPS.'));
+      s.onerror = ()=> reject(new Error('Failed to load Google script. Allow https://accounts.google.com and ensure HTTPS.'));
       document.head.appendChild(s);
     });
   },
@@ -537,38 +543,32 @@ const OWAuth = {
   },
   trySignIn: async function(){
     clearError();
-    // 1) Make sure the script is present
     try{ await OWAuth.injectScript(); }catch(e){ showError(e.message); setDebug(); return; }
-    // 2) Initialize and render
     if(!OWAuth.initGSI()){
-      showError('Google sign-in failed to initialize. Ensure Authorized JavaScript origin in your OAuth client equals https://openworks.suttonma.gov .'); setDebug(); return;
+      showError('Google sign-in failed to initialize. Add Authorized JavaScript origin: https://openworks.suttonma.gov'); setDebug(); return;
     }
-    // 3) Prompt sign-in
-    try{
-      google.accounts.id.prompt(); // One-tap / popup
-    }catch(e){
-      showError('Could not open Google sign-in. Popups may be blocked. Allow popups for this site.'); setDebug();
-    }
+    try{ google.accounts.id.prompt(); }catch(e){ showError('Popup blocked. Allow popups for this site.'); setDebug(); }
   }
 };
 window.OWAuth = OWAuth;
 
 /* ===== Boot ===== */
 window.addEventListener('DOMContentLoaded', async ()=>{
-  // If token saved, use it immediately (even before sign-in UI)
+  // Hook up the green button AFTER OWAuth exists
+  document.getElementById('fallbackSignIn').addEventListener('click', OWAuth.trySignIn);
+
   const saved = getSavedToken(); if(saved) setToken(saved);
   renderAuthUI();
   setDebug();
 
-  // Try to auto-load Google script; if blocked, green button will show error on click
+  // Try to auto-load Google script; if blocked, the green button will show an error when clicked
   try{
     await OWAuth.injectScript();
     if(OWAuth.initGSI()){
-      // already signed in? then load
       if(idToken){ refresh().then(()=>{ensureMap(); plotMap();}); }
     }
   }catch(_){
-    // ignore; clicking the green button will show a precise error
+    /* ignore; fallback button handles errors */
   }
 });
 </script>
