@@ -4,7 +4,6 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>OpenWorks Admin</title>
-<meta name="color-scheme" content="light dark">
 <meta name="robots" content="noindex, nofollow">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
@@ -13,17 +12,11 @@
   :root{
     --bg:#f5f7fb; --panel:#f0f3f9; --card:#ffffff; --ink:#0e1116; --muted:#526170; --brand:#2e7d32; --brand-ink:#ffffff; --border:#e6ebf2; --danger:#c92a2a; --focus:#0ea5e9; --shadow:0 10px 30px rgba(18, 38, 63, .08);
   }
-  @media (prefers-color-scheme:dark){
-    :root{ --bg:#0b0d11; --panel:#11151c; --card:#121821; --ink:#e9eef7; --muted:#8ea0b3; --brand:#2ecc71; --brand-ink:#0a2415; --border:#263042; --danger:#ff6b6b; --focus:#7cd2ff; --shadow:0 10px 30px rgba(0,0,0,.4); }
-  }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
   header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
   .brand{display:flex;align-items:center;gap:10px}
   .brand img{width:34px;height:34px}
-  nav.tabs{display:flex;gap:8px}
-  .tab{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:#fff0;cursor:pointer}
-  .tab.active{background:var(--card);box-shadow:var(--shadow)}
   .wrap{max-width:1300px;margin:0 auto;padding:16px 18px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:12px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -37,7 +30,6 @@
   tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px;border-right:1px solid var(--border)}
   .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:.85rem}
   .pill{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:.8rem}
-  .muted{color:var(--muted)}
   .toast{position:fixed;inset:auto 16px 16px auto;background:var(--card);border:1px solid var(--border);padding:12px 14px;border-radius:12px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:.25s;z-index:50}
   .toast.show{opacity:1;transform:none}
   /* Drawer */
@@ -48,8 +40,9 @@
   .panel header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
   .panel .content{padding:14px;overflow:auto;display:flex;flex-direction:column;gap:12px}
   textarea{min-height:84px}
-  #map{height:520px;border-radius:14px}
+  #map{height:360px;border-radius:14px}
   :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:10px}
+  a.inline{color:var(--brand);text-decoration:none;border-bottom:1px dashed var(--brand)}
 </style>
 </head>
 <body>
@@ -58,10 +51,6 @@
     <img alt="Seal" src="https://upload.wikimedia.org/wikipedia/commons/2/27/Seal_of_Sutton%2C_Massachusetts.png?20231220025329">
     <strong>OpenWorks Admin</strong>
   </div>
-  <nav class="tabs">
-    <button class="tab active" data-tab="tickets">Tickets</button>
-    <button class="tab" data-tab="map">Map</button>
-  </nav>
   <div class="row">
     <div id="gsi"></div>
     <span id="me" class="muted"></span>
@@ -69,8 +58,7 @@
 </header>
 
 <div class="wrap">
-  <!-- Tickets tab -->
-  <section id="view-tickets" class="card">
+  <section class="card">
     <div class="row" style="padding:6px 6px 12px 6px">
       <input id="q" placeholder="Search description, address, reporter…" style="min-width:260px">
       <select id="qs">
@@ -92,23 +80,15 @@
       <span class="badge" id="count" style="margin-left:auto">0 tickets</span>
     </div>
 
-    <table>
+    <!-- Embedded map on the tickets page -->
+    <div id="map" role="region" aria-label="Open & In Progress map"></div>
+
+    <table style="margin-top:12px">
       <thead>
         <tr><th>Ticket</th><th>Status</th><th>Category</th><th>Description</th><th>Address</th><th>Reporter</th><th>Updated</th><th></th></tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>
-  </section>
-
-  <!-- Map tab -->
-  <section id="view-map" class="card" style="display:none">
-    <div class="row" style="justify-content:space-between; padding:6px 6px 12px 6px">
-      <div class="row">
-        <label class="badge">Showing Open &amp; In Progress</label>
-      </div>
-      <button class="btn" id="mapRefresh">Refresh</button>
-    </div>
-    <div id="map" role="region" aria-label="Ticket locations map"></div>
   </section>
 </div>
 
@@ -153,7 +133,7 @@
         <strong>Requestor</strong>
         <div class="row" style="gap:16px; flex-wrap:wrap; margin-top:6px">
           <div><div class="muted">Name</div><div id="d_rname"></div></div>
-          <div><div class="muted">Email</div><div><a id="d_remail" href="#"></a></div></div>
+          <div><div class="muted">Email</div><div><a id="d_remail" class="inline" href="#"></a></div></div>
           <div><div class="muted">Phone</div><div id="d_rphone"></div></div>
         </div>
       </div>
@@ -190,29 +170,28 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbwgL8hpjAivoSEvDYE61lrLbw8FkBKcylJZxK-e17456wFFDWsaKhqxkFXQzCioujA/exec'; // keep your real URL here
-const CLIENT_ID = '1053304257177-58btmvppdko26jhe3j70959e0gnodivt.apps.googleusercontent.com'; // keep your real client id
+const API = 'https://script.google.com/macros/s/AKfycbwgL8hpjAivoSEvDYE61lrLbw8FkBKcylJZxK-e17456wFFDWsaKhqxkFXQzCioujA/exec';
+const CLIENT_ID = '1053304257177-58btmvppdko26jhe3j70959e0gnodivt.apps.googleusercontent.com';
 let idToken=null, dataset=[], current=null;
 
-// --- UI helpers ---
+// --- helpers ---
 const $ = (s)=>document.querySelector(s);
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function openDrawer(){ const d=$('#drawer'); d.classList.add('open'); d.setAttribute('aria-hidden','false'); }
 function closeDrawer(){ const d=$('#drawer'); d.classList.remove('open'); d.setAttribute('aria-hidden','true'); current=null; }
 
-// --- Tabs ---
-document.querySelectorAll('.tab').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    const tab = btn.getAttribute('data-tab');
-    $('#view-tickets').style.display = tab==='tickets' ? 'block' : 'none';
-    $('#view-map').style.display = tab==='map' ? 'block' : 'none';
-    if(tab==='map'){ ensureMap(); plotMap(); }
-  });
+// persist token
+const TOK_KEY='ow_id_token';
+function setToken(tok){ idToken=tok; try{ localStorage.setItem(TOK_KEY, tok || ''); }catch(_){} }
+function getSavedToken(){ try{ return localStorage.getItem(TOK_KEY)||''; }catch(_){ return ''; } }
+
+// auto-filter refresh
+['q','qs','qc'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', ()=> refresh());
+  if(id==='q'){ document.getElementById(id).addEventListener('keyup', e=>{ if(e.key==='Enter') refresh(); }); }
 });
 
-// --- Render table ---
+// --- table ---
 function renderRows(list){
   const tb=$('#rows'); tb.innerHTML='';
   $('#count').textContent=`${list.length} ticket${list.length===1?'':'s'}`;
@@ -223,16 +202,25 @@ function renderRows(list){
       <td><span class="pill">${r.status||''}</span></td>
       <td>${r.category||''}</td>
       <td>${(r.description||'').slice(0,120)}</td>
-      <td>${r.address || ((r.lat&&r.lng)?(`${r.lat}, ${r.lng}`):'')}</td>
+      <td>${displayAddress(r)}</td>
       <td>${r.reporter_name||''}<div class="muted" style="font-size:.85rem">${r.reporter_email||''}</div></td>
       <td>${r.last_updated_at || r.timestamp || ''}</td>
       <td><button class="ghost view" data-id="${r.ticket_id}">Open</button></td>`;
     tb.appendChild(tr);
   });
-  tb.querySelectorAll('.view').forEach(b=> b.addEventListener('click', ()=> openTicket(b.getAttribute('data-id'))));
+  // robust event binding
+  tb.querySelectorAll('button.view').forEach(b=> b.addEventListener('click', (ev)=>{ ev.stopPropagation(); openTicket(b.getAttribute('data-id')); }));
 }
 
-// --- Load + show one ticket in drawer ---
+// assume Sutton, MA if not in address
+function displayAddress(r){
+  if(r.address && /sutton/i.test(r.address)) return r.address;
+  if(r.address) return `${r.address}, Sutton, MA 01590`;
+  if(r.lat && r.lng) return `${r.lat}, ${r.lng}`;
+  return '—';
+}
+
+// --- load + show ticket ---
 async function openTicket(tid){
   current = dataset.find(x=>x.ticket_id===tid);
   if(!current){ toast('Ticket not found'); return; }
@@ -243,7 +231,7 @@ async function openTicket(tid){
   $('#d_cat').textContent = current.category || '';
   $('#d_prio').textContent = current.priority_hint || 'normal';
   $('#d_updated').textContent = current.last_updated_at || current.timestamp || '';
-  $('#d_addr').textContent = current.address || ((current.lat&&current.lng)?(`${current.lat}, ${current.lng}`):'—');
+  $('#d_addr').textContent = displayAddress(current);
   $('#d_desc').textContent = current.description || '';
 
   // Requestor
@@ -253,13 +241,11 @@ async function openTicket(tid){
   $('#d_remail').href = em ? `mailto:${em}` : '#';
   $('#d_rphone').textContent = current.reporter_phone || '—';
 
-  // Timeline
   await loadTimeline(current.ticket_id);
-
   openDrawer();
 }
 
-// --- Fetch list ---
+// --- fetch list ---
 async function refresh(){
   if(!idToken){ toast('Please sign in'); return; }
   const q=$('#q').value.trim(), qs=$('#qs').value, qc=$('#qc').value;
@@ -271,14 +257,16 @@ async function refresh(){
   if(data.ok){
     dataset=data.rows;
     renderRows(dataset);
-    if(mapReady && document.querySelector('.tab.active')?.getAttribute('data-tab')==='map'){ plotMap(); }
+    ensureMap(); plotMap(); // update map on every refresh
   } else {
+    // If unauthorized, clear token and prompt sign-in again once
+    if((data.error||'').toLowerCase().includes('unauthorized')){ setToken(''); google.accounts.id.prompt(); }
     toast('Error: '+(data.error||'load failed'));
   }
 }
 document.getElementById('refresh').addEventListener('click', refresh);
 
-// --- Timeline ---
+// --- timeline ---
 async function loadTimeline(tid){
   const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_activity', id_token:idToken, ticket_id: tid})});
   const data=await res.json();
@@ -301,7 +289,7 @@ async function loadTimeline(tid){
   });
 }
 
-// --- Save core fields ---
+// --- save ---
 document.getElementById('save').addEventListener('click', async ()=>{
   if(!current) return;
   const update = {
@@ -317,7 +305,7 @@ document.getElementById('save').addEventListener('click', async ()=>{
   else document.getElementById('save_msg').textContent = data.error||'Save failed';
 });
 
-// --- Post note/update ---
+// --- post note/update ---
 document.getElementById('post').addEventListener('click', async ()=>{
   if(!current) return;
   const update={
@@ -338,33 +326,69 @@ document.getElementById('post').addEventListener('click', async ()=>{
   }else document.getElementById('post_msg').textContent=data.error||'Post failed';
 });
 
-// --- Drawer controls ---
+// --- drawer controls ---
 document.getElementById('close').addEventListener('click', closeDrawer);
 document.getElementById('backdrop').addEventListener('click', closeDrawer);
 
-// --- Map (Leaflet) ---
-let map, mapReady=false, markersLayer;
+// --- map (Leaflet) in the tickets page ---
+let map, mapReady=false, markersLayer, geocodeCache=new Map();
 function ensureMap(){
   if(mapReady) return;
   map = L.map('map', { scrollWheelZoom:true });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '&copy; OpenStreetMap'
-  }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
-  map.setView([42.1501,-71.7637], 12); // Sutton-ish default
+  map.setView([42.1501,-71.7637], 12); // Sutton, MA area
   mapReady = true;
 }
-function plotMap(){
+function assumedFullAddress(addr){
+  if(!addr) return '';
+  if(/sutton/i.test(addr)) return addr;
+  return `${addr}, Sutton, MA 01590`;
+}
+async function geocodeAddress(addr){
+  const q = assumedFullAddress(addr);
+  if(!q) return null;
+  if(geocodeCache.has(q)) return geocodeCache.get(q);
+  try{
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, { headers:{'Accept':'application/json'}, method:'GET' });
+    const data = await res.json();
+    const pt = (Array.isArray(data) && data[0]) ? {lat:+data[0].lat, lng:+data[0].lon} : null;
+    geocodeCache.set(q, pt);
+    return pt;
+  }catch(_){ return null; }
+}
+async function plotMap(){
   if(!mapReady) return;
   markersLayer.clearLayers();
-  const pts = dataset.filter(r=>['Open','In Progress'].includes(String(r.status))).filter(r=>r.lat && r.lng);
-  pts.forEach(r=>{
-    const m = L.marker([parseFloat(r.lat), parseFloat(r.lng)]);
+
+  // Collect points for Open & In Progress
+  const needed = [];
+  for(const r of dataset){
+    if(!['Open','In Progress'].includes(String(r.status))) continue;
+    if(r.lat && r.lng){
+      needed.push({r, lat:parseFloat(r.lat), lng:parseFloat(r.lng)});
+    }else if(r.address){
+      needed.push({r, addr:r.address}); // we'll try geocoding
+    }
+  }
+
+  // Geocode any missing
+  for(let i=0;i<needed.length;i++){
+    if(needed[i].lat!=null) continue;
+    const pt = await geocodeAddress(needed[i].addr);
+    if(pt){ needed[i].lat=pt.lat; needed[i].lng=pt.lng; }
+  }
+
+  const pts = needed.filter(x=>x.lat!=null && x.lng!=null);
+  pts.forEach(({r,lat,lng})=>{
+    const m = L.marker([lat,lng]);
+    const safeAddr = (displayAddress(r)||'').replace(/</g,'&lt;');
     m.bindPopup(`
       <b>${r.ticket_id}</b><br>
       ${r.status || ''} • ${r.category || ''}<br>
-      ${(r.address||'').replace(/</g,'&lt;')}<br>
-      <button data-open="${r.ticket_id}" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:#fff0;cursor:pointer">Open</button>
+      ${safeAddr}<br>
+      <button data-open="${r.ticket_id}" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid #e6ebf2;background:#fff0;cursor:pointer">Open</button>
     `);
     m.on('popupopen', e=>{
       const btn = e.popup.getElement().querySelector('button[data-open]');
@@ -372,18 +396,21 @@ function plotMap(){
     });
     markersLayer.addLayer(m);
   });
-  // Fit bounds if we have points
+
   try{
-    if(pts.length){ const b = L.latLngBounds(pts.map(r=>[parseFloat(r.lat), parseFloat(r.lng)])); map.fitBounds(b, {padding:[30,30]}); }
+    if(pts.length){ const b = L.latLngBounds(pts.map(x=>[x.lat, x.lng])); map.fitBounds(b, {padding:[24,24]}); }
+    else { map.setView([42.1501,-71.7637], 12); }
   }catch(_){}
 }
-document.getElementById('mapRefresh').addEventListener('click', ()=>{ ensureMap(); plotMap(); });
 
-// --- Google Sign-In & initial load ---
+// --- Google Sign-In: reuse saved token if available ---
 window.onload = () => {
+  const saved = getSavedToken();
+  if(saved){ setToken(saved); $('#me').textContent='Signed in'; refresh().then(()=>ensureMap()).then(()=>plotMap()); }
+
   google.accounts.id.initialize({
     client_id: CLIENT_ID,
-    callback: (resp)=>{ idToken=resp.credential; document.getElementById('me').textContent='Signed in'; refresh(); ensureMap(); }
+    callback: (resp)=>{ setToken(resp.credential); $('#me').textContent='Signed in'; refresh().then(()=>ensureMap()).then(()=>plotMap()); }
   });
   google.accounts.id.renderButton(document.getElementById('gsi'), { theme:'outline', size:'large' });
 };
