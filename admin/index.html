@@ -7,53 +7,61 @@
 <meta name="color-scheme" content="light dark">
 <meta name="robots" content="noindex, nofollow">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
 <style>
   :root{
-    --bg:#0b0d11; --panel:#11151c; --card:#121821; --elev:rgba(255,255,255,.06);
-    --ink:#e9eef7; --muted:#8ea0b3; --brand:#2ecc71; --brand-ink:#0a2415; --border:#263042; --danger:#ff6b6b; --focus:#7cd2ff;
+    --bg:#f5f7fb; --panel:#f0f3f9; --card:#ffffff; --ink:#0e1116; --muted:#526170; --brand:#2e7d32; --brand-ink:#ffffff; --border:#e6ebf2; --danger:#c92a2a; --focus:#0ea5e9; --shadow:0 10px 30px rgba(18, 38, 63, .08);
   }
-  @media (prefers-color-scheme:light){
-    :root{ --bg:#f5f7fb; --panel:#f0f3f9; --card:#ffffff; --elev:rgba(0,0,0,.06); --ink:#0e1116; --muted:#526170; --brand:#2e7d32; --brand-ink:#ffffff; --border:#e6ebf2; --danger:#c92a2a; --focus:#0ea5e9; }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#0b0d11; --panel:#11151c; --card:#121821; --ink:#e9eef7; --muted:#8ea0b3; --brand:#2ecc71; --brand-ink:#0a2415; --border:#263042; --danger:#ff6b6b; --focus:#7cd2ff; --shadow:0 10px 30px rgba(0,0,0,.4); }
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
-  h1{margin:0;font-size:1.25rem}
-  .wrap{max-width:1200px;margin:0 auto;padding:16px 20px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 10px 30px var(--elev);padding:12px}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand img{width:34px;height:34px}
+  nav.tabs{display:flex;gap:8px}
+  .tab{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:#fff0;cursor:pointer}
+  .tab.active{background:var(--card);box-shadow:var(--shadow)}
+  .wrap{max-width:1300px;margin:0 auto;padding:16px 18px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:12px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  input,select,button,textarea{padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:inherit;font:inherit}
-  button.btn{border:1px solid transparent;background:var(--brand);color:var(--brand-ink);font-weight:700;cursor:pointer}
+  input,select,button,textarea{padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:#fff0;color:inherit;font:inherit}
+  button.btn{border:1px solid transparent;background:var(--brand);color:var(--brand-ink);font-weight:800;cursor:pointer}
   button.ghost{background:transparent;border-color:var(--border)}
   table{width:100%;border-collapse:separate;border-spacing:0 8px}
   th{font-size:.85rem;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);text-align:left;padding:0 10px}
   td{background:var(--card);border:1px solid var(--border);padding:10px;border-left:none;border-right:none}
-  tr{border-radius:12px}
   tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px;border-left:1px solid var(--border)}
   tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px;border-right:1px solid var(--border)}
   .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:.85rem}
   .pill{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:.8rem}
   .muted{color:var(--muted)}
-  .ok{color:#1b8c3a} .warn{color:#c98a1e} .err{color:var(--danger)}
-  .right{margin-left:auto}
-  .toast{position:fixed;inset:auto 16px 16px auto;background:var(--card);border:1px solid var(--border);padding:12px 14px;border-radius:12px;box-shadow:0 10px 30px var(--elev);opacity:0;transform:translateY(8px);transition:.25s}
+  .toast{position:fixed;inset:auto 16px 16px auto;background:var(--card);border:1px solid var(--border);padding:12px 14px;border-radius:12px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:.25s;z-index:50}
   .toast.show{opacity:1;transform:none}
-  .detail{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column}
-  .detail.open{display:flex}
-  .detail .head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--border)}
-  .detail .body{flex:1;overflow:auto}
-  .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;padding:16px}
-  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
-  .timeline{display:flex;flex-direction:column;gap:10px}
-  .evt{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px}
-  .evt .top{display:flex;gap:8px;align-items:center;justify-content:space-between}
+  /* Drawer */
+  .drawer{position:fixed;inset:0 0 0 auto;display:none;z-index:40}
+  .drawer.open{display:block}
+  .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.25)}
+  .panel{position:absolute;right:0;top:0;bottom:0;width:min(560px,100%);background:var(--card);border-left:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .panel header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
+  .panel .content{padding:14px;overflow:auto;display:flex;flex-direction:column;gap:12px}
   textarea{min-height:84px}
+  #map{height:520px;border-radius:14px}
   :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:10px}
 </style>
 </head>
 <body>
 <header>
-  <h1>OpenWorks Admin</h1>
+  <div class="brand">
+    <img alt="Seal" src="https://upload.wikimedia.org/wikipedia/commons/2/27/Seal_of_Sutton%2C_Massachusetts.png?20231220025329">
+    <strong>OpenWorks Admin</strong>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="tickets">Tickets</button>
+    <button class="tab" data-tab="map">Map</button>
+  </nav>
   <div class="row">
     <div id="gsi"></div>
     <span id="me" class="muted"></span>
@@ -61,7 +69,8 @@
 </header>
 
 <div class="wrap">
-  <div class="card">
+  <!-- Tickets tab -->
+  <section id="view-tickets" class="card">
     <div class="row" style="padding:6px 6px 12px 6px">
       <input id="q" placeholder="Search description, address, reporter…" style="min-width:260px">
       <select id="qs">
@@ -80,7 +89,7 @@
         <option value="sewer">Sewer (routing)</option>
       </select>
       <button class="btn" id="refresh">Refresh</button>
-      <span class="right badge" id="count">0 tickets</span>
+      <span class="badge" id="count" style="margin-left:auto">0 tickets</span>
     </div>
 
     <table>
@@ -89,72 +98,90 @@
       </thead>
       <tbody id="rows"></tbody>
     </table>
-  </div>
+  </section>
+
+  <!-- Map tab -->
+  <section id="view-map" class="card" style="display:none">
+    <div class="row" style="justify-content:space-between; padding:6px 6px 12px 6px">
+      <div class="row">
+        <label class="badge">Showing Open &amp; In Progress</label>
+      </div>
+      <button class="btn" id="mapRefresh">Refresh</button>
+    </div>
+    <div id="map" role="region" aria-label="Ticket locations map"></div>
+  </section>
 </div>
 
-<!-- Ticket Detail Page -->
-<div class="detail" id="detail" aria-hidden="true">
-  <div class="head">
-    <div class="row">
-      <button class="ghost" id="back">← Back</button>
-      <strong id="t_head">Ticket</strong>
-      <span class="badge" id="t_badge"></span>
-    </div>
-    <div class="row">
-      <span class="muted" id="t_updated"></span>
-    </div>
-  </div>
-  <div class="body">
-    <div class="grid">
-      <!-- Left: fields -->
-      <div class="card" style="padding:16px">
-        <div class="row" style="gap:12px; flex-wrap:wrap">
-          <div><div class="muted">Ticket</div><div id="t_id" class="badge"></div></div>
-          <div><div class="muted">Status</div>
-            <select id="t_status">
-              <option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Closed</option>
-            </select>
-          </div>
-          <div><div class="muted">Assign to</div><input id="t_assigned" placeholder="name or email"></div>
+<!-- Right-hand drawer (detail) -->
+<div class="drawer" id="drawer" aria-hidden="true">
+  <div class="backdrop" id="backdrop"></div>
+  <div class="panel">
+    <header>
+      <strong id="d_title">Ticket</strong>
+      <button id="close" class="ghost">Close</button>
+    </header>
+    <div class="content">
+      <div class="row" style="gap:12px; flex-wrap:wrap">
+        <div><div class="muted">Ticket</div><div id="d_tid" class="badge"></div></div>
+        <div><div class="muted">Status</div>
+          <select id="d_status">
+            <option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Closed</option>
+          </select>
         </div>
+        <div><div class="muted">Assign to</div><input id="d_assigned" placeholder="name or email"></div>
+      </div>
 
-        <div style="margin-top:12px">
-          <div class="muted">Description</div>
-          <div id="t_desc" style="padding:8px 0"></div>
-        </div>
-        <div class="row" style="margin-top:8px; gap:16px">
-          <div><div class="muted">Category</div><div id="t_cat"></div></div>
-          <div><div class="muted">Priority</div><div id="t_prio"></div></div>
-        </div>
-        <div style="margin-top:8px"><div class="muted">Address</div><div id="t_addr"></div></div>
-        <div class="row" style="margin-top:16px">
-          <button class="btn" id="save">Save</button>
-          <span class="badge" id="save_spin" style="display:none">Saving…</span>
-          <span id="save_msg" class="muted"></span>
+      <div class="row" style="gap:16px; flex-wrap:wrap">
+        <div><div class="muted">Category</div><div id="d_cat"></div></div>
+        <div><div class="muted">Priority</div><div id="d_prio"></div></div>
+        <div><div class="muted">Updated</div><div id="d_updated"></div></div>
+      </div>
+
+      <div style="margin-top:6px">
+        <div class="muted">Address</div>
+        <div id="d_addr"></div>
+      </div>
+
+      <div style="margin-top:6px">
+        <div class="muted">Description</div>
+        <div id="d_desc"></div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border)">
+
+      <div class="card" style="padding:12px">
+        <strong>Requestor</strong>
+        <div class="row" style="gap:16px; flex-wrap:wrap; margin-top:6px">
+          <div><div class="muted">Name</div><div id="d_rname"></div></div>
+          <div><div class="muted">Email</div><div><a id="d_remail" href="#"></a></div></div>
+          <div><div class="muted">Phone</div><div id="d_rphone"></div></div>
         </div>
       </div>
 
-      <!-- Right: timeline / new note -->
-      <div class="card" style="padding:16px">
-        <div class="row" style="justify-content:space-between">
-          <strong>Timeline</strong>
-          <span class="muted" id="tl_count"></span>
-        </div>
-        <div class="timeline" id="timeline" style="margin-top:8px"></div>
+      <div class="card" style="padding:12px">
+        <strong>Timeline</strong>
+        <div id="timeline" style="display:flex;flex-direction:column;gap:10px;margin-top:8px"></div>
+      </div>
 
-        <div class="card" style="margin-top:16px;padding:12px">
-          <strong>Add Note / Update</strong>
-          <label>Internal note</label>
-          <textarea id="n_staff" placeholder="Visible to staff only"></textarea>
-          <label>Public update</label>
-          <textarea id="n_public" placeholder="Included in email if checked"></textarea>
-          <label class="row"><input type="checkbox" id="n_email"> Email resident</label>
-          <div class="row">
-            <button class="btn" id="post">Post update</button>
-            <span class="badge" id="post_spin" style="display:none">Posting…</span>
-            <span id="post_msg" class="muted"></span>
-          </div>
+      <div class="card" style="padding:12px">
+        <strong>Add Note / Update</strong>
+        <div class="hint">Internal notes are visible to staff only. Public updates can be emailed to the resident.</div>
+        <label style="margin-top:8px">Internal note (staff only)</label>
+        <textarea id="n_staff" placeholder="e.g., Called contractor; scheduled for next week"></textarea>
+        <label>Public update</label>
+        <textarea id="n_public" placeholder="e.g., Crew dispatched; expect repair within 48 hours"></textarea>
+        <label class="row"><input type="checkbox" id="n_email"> Email resident this public update</label>
+        <div class="row">
+          <button class="btn" id="post">Post update</button>
+          <span class="badge" id="post_spin" style="display:none">Posting…</span>
+          <span id="post_msg" class="muted"></span>
         </div>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="save">Save changes</button>
+        <span class="badge" id="save_spin" style="display:none">Saving…</span>
+        <span id="save_msg" class="muted"></span>
       </div>
     </div>
   </div>
@@ -163,16 +190,29 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbwgL8hpjAivoSEvDYE61lrLbw8FkBKcylJZxK-e17456wFFDWsaKhqxkFXQzCioujA/exec'; // <-- replace
-const CLIENT_ID = '1053304257177-58btmvppdko26jhe3j70959e0gnodivt.apps.googleusercontent.com'; // <-- replace
+const API = 'YOUR_APPS_SCRIPT_EXEC_URL'; // keep your real URL here
+const CLIENT_ID = 'YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com'; // keep your real client id
 let idToken=null, dataset=[], current=null;
 
+// --- UI helpers ---
 const $ = (s)=>document.querySelector(s);
-function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
-function openDetail(){ const d=$('#detail'); d.classList.add('open'); d.setAttribute('aria-hidden','false'); }
-function closeDetail(){ const d=$('#detail'); d.classList.remove('open'); d.setAttribute('aria-hidden','true'); location.hash=''; }
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function openDrawer(){ const d=$('#drawer'); d.classList.add('open'); d.setAttribute('aria-hidden','false'); }
+function closeDrawer(){ const d=$('#drawer'); d.classList.remove('open'); d.setAttribute('aria-hidden','true'); current=null; }
 
-// Render table
+// --- Tabs ---
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.getAttribute('data-tab');
+    $('#view-tickets').style.display = tab==='tickets' ? 'block' : 'none';
+    $('#view-map').style.display = tab==='map' ? 'block' : 'none';
+    if(tab==='map'){ ensureMap(); plotMap(); }
+  });
+});
+
+// --- Render table ---
 function renderRows(list){
   const tb=$('#rows'); tb.innerHTML='';
   $('#count').textContent=`${list.length} ticket${list.length===1?'':'s'}`;
@@ -186,34 +226,40 @@ function renderRows(list){
       <td>${r.address || ((r.lat&&r.lng)?(`${r.lat}, ${r.lng}`):'')}</td>
       <td>${r.reporter_name||''}<div class="muted" style="font-size:.85rem">${r.reporter_email||''}</div></td>
       <td>${r.last_updated_at || r.timestamp || ''}</td>
-      <td><button class="ghost view" data-id="${r.ticket_id}">View</button></td>`;
+      <td><button class="ghost view" data-id="${r.ticket_id}">Open</button></td>`;
     tb.appendChild(tr);
   });
   tb.querySelectorAll('.view').forEach(b=> b.addEventListener('click', ()=> openTicket(b.getAttribute('data-id'))));
 }
 
-// Load + show one ticket
+// --- Load + show one ticket in drawer ---
 async function openTicket(tid){
   current = dataset.find(x=>x.ticket_id===tid);
   if(!current){ toast('Ticket not found'); return; }
-  location.hash = `#ticket/${encodeURIComponent(tid)}`;
+  $('#d_title').textContent = 'Ticket';
+  $('#d_tid').textContent = current.ticket_id;
+  $('#d_status').value = current.status || 'Open';
+  $('#d_assigned').value = current.assigned_to || '';
+  $('#d_cat').textContent = current.category || '';
+  $('#d_prio').textContent = current.priority_hint || 'normal';
+  $('#d_updated').textContent = current.last_updated_at || current.timestamp || '';
+  $('#d_addr').textContent = current.address || ((current.lat&&current.lng)?(`${current.lat}, ${current.lng}`):'—');
+  $('#d_desc').textContent = current.description || '';
 
-  $('#t_head').textContent = 'Ticket Detail';
-  $('#t_badge').textContent = current.category || '';
-  $('#t_updated').textContent = `Updated ${current.last_updated_at || current.timestamp || ''}`;
-  $('#t_id').textContent = current.ticket_id;
-  $('#t_status').value = current.status || 'Open';
-  $('#t_assigned').value = current.assigned_to || '';
-  $('#t_desc').textContent = current.description || '';
-  $('#t_cat').textContent = current.category || '';
-  $('#t_prio').textContent = current.priority_hint || 'normal';
-  $('#t_addr').textContent = current.address || ((current.lat&&current.lng)?(`${current.lat}, ${current.lng}`):'—');
+  // Requestor
+  $('#d_rname').textContent = current.reporter_name || '—';
+  const em = (current.reporter_email||'');
+  $('#d_remail').textContent = em || '—';
+  $('#d_remail').href = em ? `mailto:${em}` : '#';
+  $('#d_rphone').textContent = current.reporter_phone || '—';
 
+  // Timeline
   await loadTimeline(current.ticket_id);
-  openDetail();
+
+  openDrawer();
 }
 
-// Fetch list
+// --- Fetch list ---
 async function refresh(){
   if(!idToken){ toast('Please sign in'); return; }
   const q=$('#q').value.trim(), qs=$('#qs').value, qc=$('#qc').value;
@@ -222,21 +268,27 @@ async function refresh(){
     body: JSON.stringify({ action:'admin_list', id_token:idToken, filters:{ q, status:qs, category:qc } })
   });
   const data = await res.json();
-  if(data.ok){ dataset=data.rows; renderRows(dataset); if(location.hash.startsWith('#ticket/')){ const tid=decodeURIComponent(location.hash.split('/')[1]||''); if(tid) openTicket(tid); } }
-  else toast('Error: '+(data.error||'load failed'));
+  if(data.ok){
+    dataset=data.rows;
+    renderRows(dataset);
+    if(mapReady && document.querySelector('.tab.active')?.getAttribute('data-tab')==='map'){ plotMap(); }
+  } else {
+    toast('Error: '+(data.error||'load failed'));
+  }
 }
+document.getElementById('refresh').addEventListener('click', refresh);
 
-// Timeline
+// --- Timeline ---
 async function loadTimeline(tid){
   const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_activity', id_token:idToken, ticket_id: tid})});
   const data=await res.json();
   const box=$('#timeline'); box.innerHTML='';
   if(!data.ok){ box.textContent='Could not load timeline'; return; }
-  $('#tl_count').textContent = `${data.rows.length} event${data.rows.length===1?'':'s'}`;
   data.rows.forEach(evt=>{
-    const div=document.createElement('div'); div.className='evt';
+    const div=document.createElement('div');
+    div.style.border='1px solid var(--border)'; div.style.borderRadius='12px'; div.style.padding='10px';
     div.innerHTML=`
-      <div class="top">
+      <div class="row" style="justify-content:space-between">
         <div><b>${evt.action}</b> • <span class="muted">${evt.actor||''}</span></div>
         <div class="muted">${evt.timestamp||''}</div>
       </div>
@@ -249,29 +301,29 @@ async function loadTimeline(tid){
   });
 }
 
-// Save core fields (status/assign)
+// --- Save core fields ---
 document.getElementById('save').addEventListener('click', async ()=>{
   if(!current) return;
   const update = {
     ticket_id: current.ticket_id,
-    status: document.getElementById('t_status').value,
-    assigned_to: document.getElementById('t_assigned').value.trim(),
+    status: document.getElementById('d_status').value,
+    assigned_to: document.getElementById('d_assigned').value.trim(),
     staff_notes: '', public_update: '', email_resident: false
   };
   document.getElementById('save_spin').style.display='inline-flex'; document.getElementById('save_msg').textContent='';
   const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_update', id_token:idToken, update})});
   const data=await res.json(); document.getElementById('save_spin').style.display='none';
-  if(data.ok){ toast('Saved ✓'); await refresh(); await openTicket(current.ticket_id); }
+  if(data.ok){ toast('Saved ✓'); await refresh(); if(current) await openTicket(current.ticket_id); }
   else document.getElementById('save_msg').textContent = data.error||'Save failed';
 });
 
-// Post note/update (timeline + optional email)
+// --- Post note/update ---
 document.getElementById('post').addEventListener('click', async ()=>{
   if(!current) return;
   const update={
     ticket_id: current.ticket_id,
-    status: document.getElementById('t_status').value,
-    assigned_to: document.getElementById('t_assigned').value.trim(),
+    status: document.getElementById('d_status').value,
+    assigned_to: document.getElementById('d_assigned').value.trim(),
     staff_notes: document.getElementById('n_staff').value.trim(),
     public_update: document.getElementById('n_public').value.trim(),
     email_resident: document.getElementById('n_email').checked
@@ -282,22 +334,56 @@ document.getElementById('post').addEventListener('click', async ()=>{
   const data=await res.json(); document.getElementById('post_spin').style.display='none';
   if(data.ok){
     document.getElementById('n_staff').value=''; document.getElementById('n_public').value=''; document.getElementById('n_email').checked=false;
-    toast('Posted ✓');
-    await refresh(); await openTicket(current.ticket_id);
+    toast('Posted ✓'); await refresh(); if(current) await openTicket(current.ticket_id);
   }else document.getElementById('post_msg').textContent=data.error||'Post failed';
 });
 
-document.getElementById('back').addEventListener('click', closeDetail);
-window.addEventListener('hashchange', ()=>{
-  if(location.hash.startsWith('#ticket/')){
-    const tid=decodeURIComponent(location.hash.split('/')[1]||''); if(tid) openTicket(tid);
-  } else { closeDetail(); }
-});
+// --- Drawer controls ---
+document.getElementById('close').addEventListener('click', closeDrawer);
+document.getElementById('backdrop').addEventListener('click', closeDrawer);
 
+// --- Map (Leaflet) ---
+let map, mapReady=false, markersLayer;
+function ensureMap(){
+  if(mapReady) return;
+  map = L.map('map', { scrollWheelZoom:true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+  map.setView([42.1501,-71.7637], 12); // Sutton-ish default
+  mapReady = true;
+}
+function plotMap(){
+  if(!mapReady) return;
+  markersLayer.clearLayers();
+  const pts = dataset.filter(r=>['Open','In Progress'].includes(String(r.status))).filter(r=>r.lat && r.lng);
+  pts.forEach(r=>{
+    const m = L.marker([parseFloat(r.lat), parseFloat(r.lng)]);
+    m.bindPopup(`
+      <b>${r.ticket_id}</b><br>
+      ${r.status || ''} • ${r.category || ''}<br>
+      ${(r.address||'').replace(/</g,'&lt;')}<br>
+      <button data-open="${r.ticket_id}" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:#fff0;cursor:pointer">Open</button>
+    `);
+    m.on('popupopen', e=>{
+      const btn = e.popup.getElement().querySelector('button[data-open]');
+      if(btn){ btn.addEventListener('click', ()=> { openTicket(btn.getAttribute('data-open')); map.closePopup(); }); }
+    });
+    markersLayer.addLayer(m);
+  });
+  // Fit bounds if we have points
+  try{
+    if(pts.length){ const b = L.latLngBounds(pts.map(r=>[parseFloat(r.lat), parseFloat(r.lng)])); map.fitBounds(b, {padding:[30,30]}); }
+  }catch(_){}
+}
+document.getElementById('mapRefresh').addEventListener('click', ()=>{ ensureMap(); plotMap(); });
+
+// --- Google Sign-In & initial load ---
 window.onload = () => {
   google.accounts.id.initialize({
     client_id: CLIENT_ID,
-    callback: (resp)=>{ idToken=resp.credential; document.getElementById('me').textContent='Signed in'; refresh(); }
+    callback: (resp)=>{ idToken=resp.credential; document.getElementById('me').textContent='Signed in'; refresh(); ensureMap(); }
   });
   google.accounts.id.renderButton(document.getElementById('gsi'), { theme:'outline', size:'large' });
 };
