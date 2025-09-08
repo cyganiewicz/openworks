@@ -43,6 +43,8 @@
   #map{height:360px;border-radius:14px}
   :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:10px}
   a.inline{color:var(--brand);text-decoration:none;border-bottom:1px dashed var(--brand)}
+  /* Colored marker dots */
+  .dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2)}
 </style>
 </head>
 <body>
@@ -172,6 +174,7 @@
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbwgL8hpjAivoSEvDYE61lrLbw8FkBKcylJZxK-e17456wFFDWsaKhqxkFXQzCioujA/exec';
 const CLIENT_ID = '1053304257177-58btmvppdko26jhe3j70959e0gnodivt.apps.googleusercontent.com';
+
 let idToken=null, dataset=[], current=null;
 
 // --- helpers ---
@@ -179,6 +182,12 @@ const $ = (s)=>document.querySelector(s);
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function openDrawer(){ const d=$('#drawer'); d.classList.add('open'); d.setAttribute('aria-hidden','false'); }
 function closeDrawer(){ const d=$('#drawer'); d.classList.remove('open'); d.setAttribute('aria-hidden','true'); current=null; }
+function fmtDT(x){
+  if(!x) return '';
+  const d = new Date(x);
+  if(Number.isNaN(d.getTime())) return String(x);
+  return d.toLocaleString(undefined, { dateStyle:'medium', timeStyle:'short' });
+}
 
 // persist token
 const TOK_KEY='ow_id_token';
@@ -187,8 +196,9 @@ function getSavedToken(){ try{ return localStorage.getItem(TOK_KEY)||''; }catch(
 
 // auto-filter refresh
 ['q','qs','qc'].forEach(id=>{
-  document.getElementById(id).addEventListener('change', ()=> refresh());
-  if(id==='q'){ document.getElementById(id).addEventListener('keyup', e=>{ if(e.key==='Enter') refresh(); }); }
+  const el = document.getElementById(id);
+  el.addEventListener('change', refresh);
+  if(id==='q'){ el.addEventListener('keyup', e=>{ if(e.key==='Enter') refresh(); }); }
 });
 
 // --- table ---
@@ -204,13 +214,17 @@ function renderRows(list){
       <td>${(r.description||'').slice(0,120)}</td>
       <td>${displayAddress(r)}</td>
       <td>${r.reporter_name||''}<div class="muted" style="font-size:.85rem">${r.reporter_email||''}</div></td>
-      <td>${r.last_updated_at || r.timestamp || ''}</td>
+      <td>${fmtDT(r.last_updated_at || r.timestamp)}</td>
       <td><button class="ghost view" data-id="${r.ticket_id}">Open</button></td>`;
     tb.appendChild(tr);
   });
-  // robust event binding
-  tb.querySelectorAll('button.view').forEach(b=> b.addEventListener('click', (ev)=>{ ev.stopPropagation(); openTicket(b.getAttribute('data-id')); }));
 }
+
+// robust event delegation for view buttons
+document.getElementById('rows').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button.view');
+  if(btn){ e.preventDefault(); e.stopPropagation(); openTicket(btn.getAttribute('data-id')); }
+});
 
 // assume Sutton, MA if not in address
 function displayAddress(r){
@@ -230,7 +244,7 @@ async function openTicket(tid){
   $('#d_assigned').value = current.assigned_to || '';
   $('#d_cat').textContent = current.category || '';
   $('#d_prio').textContent = current.priority_hint || 'normal';
-  $('#d_updated').textContent = current.last_updated_at || current.timestamp || '';
+  $('#d_updated').textContent = fmtDT(current.last_updated_at || current.timestamp);
   $('#d_addr').textContent = displayAddress(current);
   $('#d_desc').textContent = current.description || '';
 
@@ -259,7 +273,6 @@ async function refresh(){
     renderRows(dataset);
     ensureMap(); plotMap(); // update map on every refresh
   } else {
-    // If unauthorized, clear token and prompt sign-in again once
     if((data.error||'').toLowerCase().includes('unauthorized')){ setToken(''); google.accounts.id.prompt(); }
     toast('Error: '+(data.error||'load failed'));
   }
@@ -278,7 +291,7 @@ async function loadTimeline(tid){
     div.innerHTML=`
       <div class="row" style="justify-content:space-between">
         <div><b>${evt.action}</b> • <span class="muted">${evt.actor||''}</span></div>
-        <div class="muted">${evt.timestamp||''}</div>
+        <div class="muted">${fmtDT(evt.timestamp)}</div>
       </div>
       ${evt.status?(`<div class="muted" style="margin-top:6px">Status: ${evt.status}</div>`):''}
       ${evt.public_update?(`<div style="margin-top:6px"><b>Public update</b><div>${evt.public_update}</div></div>`):''}
@@ -330,7 +343,7 @@ document.getElementById('post').addEventListener('click', async ()=>{
 document.getElementById('close').addEventListener('click', closeDrawer);
 document.getElementById('backdrop').addEventListener('click', closeDrawer);
 
-// --- map (Leaflet) in the tickets page ---
+// --- map (Leaflet) with color-coded markers ---
 let map, mapReady=false, markersLayer, geocodeCache=new Map();
 function ensureMap(){
   if(mapReady) return;
@@ -339,6 +352,21 @@ function ensureMap(){
   markersLayer = L.layerGroup().addTo(map);
   map.setView([42.1501,-71.7637], 12); // Sutton, MA area
   mapReady = true;
+}
+function colorForStatus(s){
+  s = String(s||'').toLowerCase();
+  if(s==='open') return '#d32f2f';           // red
+  if(s==='in progress') return '#f59f00';    // orange
+  if(s==='on hold') return '#868e96';        // gray
+  if(s==='completed') return '#2e7d32';      // green
+  if(s==='closed') return '#334155';         // slate
+  return '#666';
+}
+function dotIcon(color){
+  return L.divIcon({
+    className:'', html:`<div class="dot" style="background:${color}"></div>`,
+    iconSize:[16,16], iconAnchor:[8,8], popupAnchor:[0,-8]
+  });
 }
 function assumedFullAddress(addr){
   if(!addr) return '';
@@ -363,26 +391,22 @@ async function plotMap(){
   markersLayer.clearLayers();
 
   // Collect points for Open & In Progress
-  const needed = [];
+  const tasks = [];
   for(const r of dataset){
-    if(!['Open','In Progress'].includes(String(r.status))) continue;
+    const status = String(r.status||'');
+    if(!/^(Open|In Progress)$/i.test(status)) continue;
     if(r.lat && r.lng){
-      needed.push({r, lat:parseFloat(r.lat), lng:parseFloat(r.lng)});
+      tasks.push(Promise.resolve({r, lat:parseFloat(r.lat), lng:parseFloat(r.lng)}));
     }else if(r.address){
-      needed.push({r, addr:r.address}); // we'll try geocoding
+      tasks.push(geocodeAddress(r.address).then(pt => pt ? ({r, lat:pt.lat, lng:pt.lng}) : null));
     }
   }
 
-  // Geocode any missing
-  for(let i=0;i<needed.length;i++){
-    if(needed[i].lat!=null) continue;
-    const pt = await geocodeAddress(needed[i].addr);
-    if(pt){ needed[i].lat=pt.lat; needed[i].lng=pt.lng; }
-  }
+  const pts = (await Promise.all(tasks)).filter(Boolean);
 
-  const pts = needed.filter(x=>x.lat!=null && x.lng!=null);
   pts.forEach(({r,lat,lng})=>{
-    const m = L.marker([lat,lng]);
+    const color = colorForStatus(r.status);
+    const m = L.marker([lat,lng], { icon: dotIcon(color) });
     const safeAddr = (displayAddress(r)||'').replace(/</g,'&lt;');
     m.bindPopup(`
       <b>${r.ticket_id}</b><br>
@@ -390,10 +414,13 @@ async function plotMap(){
       ${safeAddr}<br>
       <button data-open="${r.ticket_id}" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid #e6ebf2;background:#fff0;cursor:pointer">Open</button>
     `);
+    // Open via popup button
     m.on('popupopen', e=>{
       const btn = e.popup.getElement().querySelector('button[data-open]');
       if(btn){ btn.addEventListener('click', ()=> { openTicket(btn.getAttribute('data-open')); map.closePopup(); }); }
     });
+    // Also allow clicking marker itself
+    m.on('click', ()=> openTicket(r.ticket_id));
     markersLayer.addLayer(m);
   });
 
