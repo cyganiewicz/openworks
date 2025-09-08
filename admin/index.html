@@ -21,10 +21,10 @@
   .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:12px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   input,select,button,textarea{padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:#fff0;color:inherit;font:inherit}
-  button.btn{border:1px solid transparent;background:var(--brand);color:var(--brand-ink);font-weight:800;cursor:pointer;display:inline-block}
+  button.btn{border:1px solid transparent;background:var(--brand);color:var(--brand-ink);font-weight:800;cursor:pointer;display:inline-block;pointer-events:auto}
   button.btn.small{padding:6px 10px;border-radius:10px;font-size:.9rem}
   button.ghost{background:transparent;border-color:var(--border)}
-  table{width:100%;border-collapse:separate;border-spacing:0 8px}
+  table{width:100%;border-collapse:separate;border-spacing:0 8px;position:relative}
   th{font-size:.85rem;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);text-align:left;padding:0 10px}
   td{background:var(--card);border:1px solid var(--border);padding:10px;border-left:none;border-right:none;vertical-align:top}
   tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px;border-left:1px solid var(--border)}
@@ -180,12 +180,15 @@ const CLIENT_ID = '1053304257177-58btmvppdko26jhe3j70959e0gnodivt.apps.googleuse
 
 let idToken=null, dataset=[], current=null;
 
-// helpers
+// ===== helpers =====
 const $ = (s)=>document.querySelector(s);
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function openDrawer(){ const d=$('#drawer'); d.classList.add('open'); d.setAttribute('aria-hidden','false'); }
 function closeDrawer(){ const d=$('#drawer'); d.classList.remove('open'); d.setAttribute('aria-hidden','true'); current=null; }
 function fmtDT(x){ if(!x) return ''; const d=new Date(x); return isNaN(d)? String(x): d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}); }
+
+// Global error toast (helps catch silent JS errors)
+window.addEventListener('error', (e)=> toast('JS error: ' + (e.message||'unknown')));
 
 // persist token
 const TOK_KEY='ow_id_token';
@@ -220,7 +223,12 @@ function normalizeRow(r){
   };
 }
 
-// render rows (row is clickable + has explicit button)
+// expose a global open helper (the key fix)
+window.OW = {
+  openByIdx: function(idx){ openTicketByIndex(idx); }
+};
+
+// render rows (row is clickable + explicit inline onclick)
 function renderRows(list){
   const tb=$('#rows'); tb.innerHTML='';
   $('#count').textContent=`${list.length} ticket${list.length===1?'':'s'}`;
@@ -235,17 +243,17 @@ function renderRows(list){
       <td>${displayAddress(r)}</td>
       <td>${r.reporter_name||''}<div class="muted" style="font-size:.85rem">${r.reporter_email||''}</div></td>
       <td>${fmtDT(r.last_updated_at || r.timestamp)}</td>
-      <td><button type="button" class="btn small open" data-idx="${idx}">Open</button></td>`;
+      <td>
+        <button type="button" class="btn small open" data-idx="${idx}" onclick="OW.openByIdx(${idx});return false;">Open</button>
+      </td>`;
     tb.appendChild(tr);
   });
 }
 
-// unified click handler for tbody (row OR button)
+// fallback: row click also opens
 document.getElementById('rows').addEventListener('click', (e)=>{
-  const btn = e.target.closest('button.open');
-  if(btn){ e.preventDefault(); e.stopPropagation(); openTicketByIndex(parseInt(btn.dataset.idx,10)); return; }
   const row = e.target.closest('tr[data-idx]');
-  if(row){ e.preventDefault(); openTicketByIndex(parseInt(row.dataset.idx,10)); }
+  if(row && !e.target.closest('button')){ e.preventDefault(); OW.openByIdx(parseInt(row.dataset.idx,10)); }
 });
 
 // address display (assume Sutton)
@@ -362,7 +370,7 @@ document.getElementById('post').addEventListener('click', async ()=>{
 document.getElementById('close').addEventListener('click', closeDrawer);
 document.getElementById('backdrop').addEventListener('click', closeDrawer);
 
-// map + colors
+// map + colored markers
 let map, mapReady=false, markersLayer, geocodeCache=new Map();
 function ensureMap(){
   if(mapReady) return;
@@ -423,13 +431,9 @@ async function plotMap(){
       <b>${r.ticket_id || '(no id)'}</b><br>
       ${r.status || ''} • ${r.category || ''}<br>
       ${safeAddr}<br>
-      <button type="button" data-idx="${idx}" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid #e6ebf2;background:#fff0;cursor:pointer">Open</button>
+      <button type="button" data-idx="${idx}" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid #e6ebf2;background:#fff0;cursor:pointer" onclick="OW.openByIdx(${idx});return false;">Open</button>
     `);
-    m.on('popupopen', e=>{
-      const btn = e.popup.getElement().querySelector('button[data-idx]');
-      if(btn){ btn.addEventListener('click', ()=> { openTicketByIndex(parseInt(btn.dataset.idx,10)); map.closePopup(); }); }
-    });
-    m.on('click', ()=> openTicketByIndex(idx));
+    m.on('click', ()=> OW.openByIdx(idx));
     markersLayer.addLayer(m);
   });
 
