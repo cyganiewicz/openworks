@@ -65,12 +65,12 @@
 <div class="wrap">
   <section class="card">
     <div class="row" style="padding:6px 6px 12px 6px">
-      <input id="q" placeholder="Search description, address, reporter…" style="min-width:260px">
-      <select id="qs">
+      <input id="q" aria-label="Search tickets" placeholder="Search description, address, reporter…" style="min-width:260px">
+      <select id="qs" aria-label="Filter by status">
         <option value="">All statuses</option>
         <option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Closed</option>
       </select>
-      <select id="qc">
+      <select id="qc" aria-label="Filter by category">
         <option value="">All categories</option>
         <option value="roads_sidewalks">Roads &amp; Sidewalks</option>
         <option value="trees_row">Trees &amp; Vegetation (ROW)</option>
@@ -85,7 +85,7 @@
       <span class="badge" id="count" style="margin-left:auto">0 tickets</span>
     </div>
 
-    <!-- Embedded map on the tickets page -->
+    <!-- Map embedded on the tickets page -->
     <div id="map" role="region" aria-label="Open & In Progress map"></div>
 
     <table style="margin-top:12px">
@@ -108,12 +108,16 @@
     <div class="content">
       <div class="row" style="gap:12px; flex-wrap:wrap">
         <div><div class="muted">Ticket</div><div id="d_tid" class="badge"></div></div>
-        <div><div class="muted">Status</div>
+        <div>
+          <label class="muted" for="d_status">Status</label>
           <select id="d_status">
             <option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Closed</option>
           </select>
         </div>
-        <div><div class="muted">Assign to</div><input id="d_assigned" placeholder="name or email"></div>
+        <div>
+          <label class="muted" for="d_assigned">Assign to</label>
+          <input id="d_assigned" placeholder="name or email">
+        </div>
       </div>
 
       <div class="row" style="gap:16px; flex-wrap:wrap">
@@ -151,9 +155,9 @@
       <div class="card" style="padding:12px">
         <strong>Add Note / Update</strong>
         <div class="hint">Internal notes are visible to staff only. Public updates can be emailed to the resident.</div>
-        <label style="margin-top:8px">Internal note (staff only)</label>
+        <label for="n_staff" style="margin-top:8px">Internal note (staff only)</label>
         <textarea id="n_staff" placeholder="e.g., Called contractor; scheduled for next week"></textarea>
-        <label>Public update</label>
+        <label for="n_public">Public update</label>
         <textarea id="n_public" placeholder="e.g., Crew dispatched; expect repair within 48 hours"></textarea>
         <label class="row"><input type="checkbox" id="n_email"> Email resident this public update</label>
         <div class="row">
@@ -223,9 +227,28 @@ function normalizeRow(r){
   };
 }
 
-// expose a global open helper (the key fix)
+// ==== GLOBAL open helpers (auto-load, robust) ====
 window.OW = {
-  openByIdx: function(idx){ openTicketByIndex(idx); }
+  openByIdx: async function(idx){
+    try{
+      if(!Array.isArray(dataset) || dataset.length===0){ toast('Loading tickets…'); await refresh(); }
+      if(!Array.isArray(dataset) || dataset.length===0){ toast('No tickets found.'); return; }
+      if(idx == null || isNaN(idx)) idx = 0;
+      if(idx < 0 || idx >= dataset.length){ toast(`Row ${idx} is out of range (0–${dataset.length-1}).`); return; }
+      await openTicketByIndex(idx);
+    }catch(err){ console.error(err); toast('Open failed: ' + (err && err.message ? err.message : err)); }
+  },
+  openById: async function(tid){
+    try{
+      if(!Array.isArray(dataset) || dataset.length===0){ await refresh(); }
+      const i = (dataset||[]).findIndex(r => (r.ticket_id||'') === String(tid));
+      if(i === -1){ toast(`Ticket ${tid} not in list.`); return; }
+      await openTicketByIndex(i);
+    }catch(err){ console.error(err); toast('Open failed: ' + (err && err.message ? err.message : err)); }
+  },
+  rows: () => (dataset||[]),
+  first: () => (dataset && dataset[0]) || null,
+  reload: () => refresh()
 };
 
 // render rows (row is clickable + explicit inline onclick)
@@ -256,7 +279,7 @@ document.getElementById('rows').addEventListener('click', (e)=>{
   if(row && !e.target.closest('button')){ e.preventDefault(); OW.openByIdx(parseInt(row.dataset.idx,10)); }
 });
 
-// address display (assume Sutton)
+// address display (assume Sutton if missing)
 function displayAddress(r){
   if(r.address && /sutton/i.test(r.address)) return r.address;
   if(r.address) return `${r.address}, Sutton, MA 01590`;
@@ -264,24 +287,33 @@ function displayAddress(r){
   return '—';
 }
 
-// open by index
+// open by index (with guard)
 async function openTicketByIndex(idx){
+  if(!Array.isArray(dataset) || idx < 0 || idx >= dataset.length){
+    toast('Row not found (dataset len: ' + (dataset?dataset.length:0) + ')');
+    return;
+  }
   const row = dataset[idx];
-  if(!row){ toast('Row not found'); return; }
   current = row;
-  $('#d_tid').textContent = row.ticket_id || '(no id)';
-  $('#d_status').value = row.status || 'Open';
-  $('#d_assigned').value = row.assigned_to || '';
-  $('#d_cat').textContent = row.category || '';
-  $('#d_prio').textContent = row.priority_hint || 'normal';
-  $('#d_updated').textContent = fmtDT(row.last_updated_at || row.timestamp);
-  $('#d_addr').textContent = displayAddress(row);
-  $('#d_desc').textContent = row.description || '';
-  $('#d_rname').textContent = row.reporter_name || '—';
-  const em = (row.reporter_email||'');
-  $('#d_remail').textContent = em || '—';
-  $('#d_remail').href = em ? `mailto:${em}` : '#';
-  $('#d_rphone').textContent = row.reporter_phone || '—';
+
+  // populate drawer
+  document.getElementById('d_tid').textContent = row.ticket_id || '(no id)';
+  document.getElementById('d_status').value = row.status || 'Open';
+  document.getElementById('d_assigned').value = row.assigned_to || '';
+  document.getElementById('d_cat').textContent = row.category || '';
+  document.getElementById('d_prio').textContent = row.priority_hint || 'normal';
+  document.getElementById('d_updated').textContent = fmtDT(row.last_updated_at || row.timestamp);
+  document.getElementById('d_addr').textContent = displayAddress(row);
+  document.getElementById('d_desc').textContent = row.description || '';
+
+  // requester
+  document.getElementById('d_rname').textContent = row.reporter_name || '—';
+  const em = row.reporter_email || '';
+  const a = document.getElementById('d_remail');
+  a.textContent = em || '—';
+  a.href = em ? `mailto:${em}` : '#';
+  document.getElementById('d_rphone').textContent = row.reporter_phone || '—';
+
   await loadTimeline(row.ticket_id || '');
   openDrawer();
 }
@@ -338,11 +370,11 @@ document.getElementById('save').addEventListener('click', async ()=>{
     assigned_to: document.getElementById('d_assigned').value.trim(),
     staff_notes: '', public_update: '', email_resident: false
   };
-  $('#save_spin').style.display='inline-flex'; $('#save_msg').textContent='';
+  document.getElementById('save_spin').style.display='inline-flex'; document.getElementById('save_msg').textContent='';
   const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_update', id_token:idToken, update})});
-  const data=await res.json(); $('#save_spin').style.display='none';
+  const data=await res.json(); document.getElementById('save_spin').style.display='none';
   if(data.ok){ toast('Saved ✓'); await refresh(); if(current){ const idx = dataset.findIndex(r=>r.ticket_id===current.ticket_id); if(idx>-1) openTicketByIndex(idx); } }
-  else $('#save_msg').textContent = data.error||'Save failed';
+  else document.getElementById('save_msg').textContent = data.error||'Save failed';
 });
 
 // post update
@@ -356,14 +388,14 @@ document.getElementById('post').addEventListener('click', async ()=>{
     public_update: document.getElementById('n_public').value.trim(),
     email_resident: document.getElementById('n_email').checked
   };
-  if(!update.staff_notes && !update.public_update && !update.email_resident){ $('#post_msg').textContent='Enter a note or update.'; return; }
-  $('#post_spin').style.display='inline-flex'; $('#post_msg').textContent='';
+  if(!update.staff_notes && !update.public_update && !update.email_resident){ document.getElementById('post_msg').textContent='Enter a note or update.'; return; }
+  document.getElementById('post_spin').style.display='inline-flex'; document.getElementById('post_msg').textContent='';
   const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_update', id_token:idToken, update})});
-  const data=await res.json(); $('#post_spin').style.display='none';
+  const data=await res.json(); document.getElementById('post_spin').style.display='none';
   if(data.ok){
-    $('#n_staff').value=''; $('#n_public').value=''; $('#n_email').checked=false;
+    document.getElementById('n_staff').value=''; document.getElementById('n_public').value=''; document.getElementById('n_email').checked=false;
     toast('Posted ✓'); await refresh(); if(current){ const idx = dataset.findIndex(r=>r.ticket_id===current.ticket_id); if(idx>-1) openTicketByIndex(idx); }
-  }else $('#post_msg').textContent=data.error||'Post failed';
+  }else document.getElementById('post_msg').textContent=data.error||'Post failed';
 });
 
 // drawer controls
