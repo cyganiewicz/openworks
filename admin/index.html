@@ -1,1 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>OpenWorks Admin</title>
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --bg:#0b0d11; --panel:#11151c; --card:#121821; --elev:rgba(255,255,255,.06);
+    --ink:#e9eef7; --muted:#8ea0b3; --brand:#2ecc71; --brand-ink:#0a2415; --border:#263042; --danger:#ff6b6b; --focus:#7cd2ff;
+  }
+  @media (prefers-color-scheme:light){
+    :root{ --bg:#f5f7fb; --panel:#f0f3f9; --card:#ffffff; --elev:rgba(0,0,0,.06); --ink:#0e1116; --muted:#526170; --brand:#2e7d32; --brand-ink:#ffffff; --border:#e6ebf2; --danger:#c92a2a; --focus:#0ea5e9; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+  h1{margin:0;font-size:1.25rem}
+  .wrap{max-width:1200px;margin:0 auto;padding:16px 20px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 10px 30px var(--elev);padding:12px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  input,select,button,textarea{padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:inherit;font:inherit}
+  button.btn{border:1px solid transparent;background:var(--brand);color:var(--brand-ink);font-weight:700;cursor:pointer}
+  button.ghost{background:transparent;border-color:var(--border)}
+  table{width:100%;border-collapse:separate;border-spacing:0 8px}
+  th{font-size:.85rem;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);text-align:left;padding:0 10px}
+  td{background:var(--card);border:1px solid var(--border);padding:10px;border-left:none;border-right:none}
+  tr{border-radius:12px}
+  tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px;border-left:1px solid var(--border)}
+  tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px;border-right:1px solid var(--border)}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:.85rem}
+  .pill{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:.8rem}
+  .muted{color:var(--muted)}
+  .ok{color:#1b8c3a} .warn{color:#c98a1e} .err{color:var(--danger)}
+  .right{margin-left:auto}
+  .toast{position:fixed;inset:auto 16px 16px auto;background:var(--card);border:1px solid var(--border);padding:12px 14px;border-radius:12px;box-shadow:0 10px 30px var(--elev);opacity:0;transform:translateY(8px);transition:.25s}
+  .toast.show{opacity:1;transform:none}
+  .detail{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column}
+  .detail.open{display:flex}
+  .detail .head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--border)}
+  .detail .body{flex:1;overflow:auto}
+  .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;padding:16px}
+  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+  .timeline{display:flex;flex-direction:column;gap:10px}
+  .evt{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px}
+  .evt .top{display:flex;gap:8px;align-items:center;justify-content:space-between}
+  textarea{min-height:84px}
+  :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>OpenWorks Admin</h1>
+  <div class="row">
+    <div id="gsi"></div>
+    <span id="me" class="muted"></span>
+  </div>
+</header>
 
+<div class="wrap">
+  <div class="card">
+    <div class="row" style="padding:6px 6px 12px 6px">
+      <input id="q" placeholder="Search description, address, reporter…" style="min-width:260px">
+      <select id="qs">
+        <option value="">All statuses</option>
+        <option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Closed</option>
+      </select>
+      <select id="qc">
+        <option value="">All categories</option>
+        <option value="roads_sidewalks">Roads &amp; Sidewalks</option>
+        <option value="trees_row">Trees &amp; Vegetation (ROW)</option>
+        <option value="signs_markings">Signs &amp; Markings</option>
+        <option value="drainage_stormwater">Drainage &amp; Stormwater</option>
+        <option value="snow_ice">Snow &amp; Ice</option>
+        <option value="litter_dumping">Litter &amp; Illegal Dumping</option>
+        <option value="facilities_grounds">Facilities &amp; Grounds</option>
+        <option value="sewer">Sewer (routing)</option>
+      </select>
+      <button class="btn" id="refresh">Refresh</button>
+      <span class="right badge" id="count">0 tickets</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Ticket</th><th>Status</th><th>Category</th><th>Description</th><th>Address</th><th>Reporter</th><th>Updated</th><th></th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Ticket Detail Page -->
+<div class="detail" id="detail" aria-hidden="true">
+  <div class="head">
+    <div class="row">
+      <button class="ghost" id="back">← Back</button>
+      <strong id="t_head">Ticket</strong>
+      <span class="badge" id="t_badge"></span>
+    </div>
+    <div class="row">
+      <span class="muted" id="t_updated"></span>
+    </div>
+  </div>
+  <div class="body">
+    <div class="grid">
+      <!-- Left: fields -->
+      <div class="card" style="padding:16px">
+        <div class="row" style="gap:12px; flex-wrap:wrap">
+          <div><div class="muted">Ticket</div><div id="t_id" class="badge"></div></div>
+          <div><div class="muted">Status</div>
+            <select id="t_status">
+              <option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Closed</option>
+            </select>
+          </div>
+          <div><div class="muted">Assign to</div><input id="t_assigned" placeholder="name or email"></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="muted">Description</div>
+          <div id="t_desc" style="padding:8px 0"></div>
+        </div>
+        <div class="row" style="margin-top:8px; gap:16px">
+          <div><div class="muted">Category</div><div id="t_cat"></div></div>
+          <div><div class="muted">Priority</div><div id="t_prio"></div></div>
+        </div>
+        <div style="margin-top:8px"><div class="muted">Address</div><div id="t_addr"></div></div>
+        <div class="row" style="margin-top:16px">
+          <button class="btn" id="save">Save</button>
+          <span class="badge" id="save_spin" style="display:none">Saving…</span>
+          <span id="save_msg" class="muted"></span>
+        </div>
+      </div>
+
+      <!-- Right: timeline / new note -->
+      <div class="card" style="padding:16px">
+        <div class="row" style="justify-content:space-between">
+          <strong>Timeline</strong>
+          <span class="muted" id="tl_count"></span>
+        </div>
+        <div class="timeline" id="timeline" style="margin-top:8px"></div>
+
+        <div class="card" style="margin-top:16px;padding:12px">
+          <strong>Add Note / Update</strong>
+          <label>Internal note</label>
+          <textarea id="n_staff" placeholder="Visible to staff only"></textarea>
+          <label>Public update</label>
+          <textarea id="n_public" placeholder="Included in email if checked"></textarea>
+          <label class="row"><input type="checkbox" id="n_email"> Email resident</label>
+          <div class="row">
+            <button class="btn" id="post">Post update</button>
+            <span class="badge" id="post_spin" style="display:none">Posting…</span>
+            <span id="post_msg" class="muted"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+const API = 'YOUR_APPS_SCRIPT_EXEC_URL'; // <-- replace
+const CLIENT_ID = 'YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com'; // <-- replace
+let idToken=null, dataset=[], current=null;
+
+const $ = (s)=>document.querySelector(s);
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
+function openDetail(){ const d=$('#detail'); d.classList.add('open'); d.setAttribute('aria-hidden','false'); }
+function closeDetail(){ const d=$('#detail'); d.classList.remove('open'); d.setAttribute('aria-hidden','true'); location.hash=''; }
+
+// Render table
+function renderRows(list){
+  const tb=$('#rows'); tb.innerHTML='';
+  $('#count').textContent=`${list.length} ticket${list.length===1?'':'s'}`;
+  list.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><b>${r.ticket_id}</b><div class="muted" style="font-size:.85rem">${r.priority_hint||'normal'}</div></td>
+      <td><span class="pill">${r.status||''}</span></td>
+      <td>${r.category||''}</td>
+      <td>${(r.description||'').slice(0,120)}</td>
+      <td>${r.address || ((r.lat&&r.lng)?(`${r.lat}, ${r.lng}`):'')}</td>
+      <td>${r.reporter_name||''}<div class="muted" style="font-size:.85rem">${r.reporter_email||''}</div></td>
+      <td>${r.last_updated_at || r.timestamp || ''}</td>
+      <td><button class="ghost view" data-id="${r.ticket_id}">View</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('.view').forEach(b=> b.addEventListener('click', ()=> openTicket(b.getAttribute('data-id'))));
+}
+
+// Load + show one ticket
+async function openTicket(tid){
+  current = dataset.find(x=>x.ticket_id===tid);
+  if(!current){ toast('Ticket not found'); return; }
+  location.hash = `#ticket/${encodeURIComponent(tid)}`;
+
+  $('#t_head').textContent = 'Ticket Detail';
+  $('#t_badge').textContent = current.category || '';
+  $('#t_updated').textContent = `Updated ${current.last_updated_at || current.timestamp || ''}`;
+  $('#t_id').textContent = current.ticket_id;
+  $('#t_status').value = current.status || 'Open';
+  $('#t_assigned').value = current.assigned_to || '';
+  $('#t_desc').textContent = current.description || '';
+  $('#t_cat').textContent = current.category || '';
+  $('#t_prio').textContent = current.priority_hint || 'normal';
+  $('#t_addr').textContent = current.address || ((current.lat&&current.lng)?(`${current.lat}, ${current.lng}`):'—');
+
+  await loadTimeline(current.ticket_id);
+  openDetail();
+}
+
+// Fetch list
+async function refresh(){
+  if(!idToken){ toast('Please sign in'); return; }
+  const q=$('#q').value.trim(), qs=$('#qs').value, qc=$('#qc').value;
+  const res = await fetch(API, {
+    method:'POST', headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify({ action:'admin_list', id_token:idToken, filters:{ q, status:qs, category:qc } })
+  });
+  const data = await res.json();
+  if(data.ok){ dataset=data.rows; renderRows(dataset); if(location.hash.startsWith('#ticket/')){ const tid=decodeURIComponent(location.hash.split('/')[1]||''); if(tid) openTicket(tid); } }
+  else toast('Error: '+(data.error||'load failed'));
+}
+
+// Timeline
+async function loadTimeline(tid){
+  const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_activity', id_token:idToken, ticket_id: tid})});
+  const data=await res.json();
+  const box=$('#timeline'); box.innerHTML='';
+  if(!data.ok){ box.textContent='Could not load timeline'; return; }
+  $('#tl_count').textContent = `${data.rows.length} event${data.rows.length===1?'':'s'}`;
+  data.rows.forEach(evt=>{
+    const div=document.createElement('div'); div.className='evt';
+    div.innerHTML=`
+      <div class="top">
+        <div><b>${evt.action}</b> • <span class="muted">${evt.actor||''}</span></div>
+        <div class="muted">${evt.timestamp||''}</div>
+      </div>
+      ${evt.status?(`<div class="muted" style="margin-top:6px">Status: ${evt.status}</div>`):''}
+      ${evt.public_update?(`<div style="margin-top:6px"><b>Public update</b><div>${evt.public_update}</div></div>`):''}
+      ${evt.staff_note?(`<div style="margin-top:6px"><b>Staff note</b><div>${evt.staff_note}</div></div>`):''}
+      ${evt.emailed_resident?(`<div class="muted" style="margin-top:6px">Resident emailed ✓</div>`):''}
+    `;
+    box.appendChild(div);
+  });
+}
+
+// Save core fields (status/assign)
+document.getElementById('save').addEventListener('click', async ()=>{
+  if(!current) return;
+  const update = {
+    ticket_id: current.ticket_id,
+    status: document.getElementById('t_status').value,
+    assigned_to: document.getElementById('t_assigned').value.trim(),
+    staff_notes: '', public_update: '', email_resident: false
+  };
+  document.getElementById('save_spin').style.display='inline-flex'; document.getElementById('save_msg').textContent='';
+  const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_update', id_token:idToken, update})});
+  const data=await res.json(); document.getElementById('save_spin').style.display='none';
+  if(data.ok){ toast('Saved ✓'); await refresh(); await openTicket(current.ticket_id); }
+  else document.getElementById('save_msg').textContent = data.error||'Save failed';
+});
+
+// Post note/update (timeline + optional email)
+document.getElementById('post').addEventListener('click', async ()=>{
+  if(!current) return;
+  const update={
+    ticket_id: current.ticket_id,
+    status: document.getElementById('t_status').value,
+    assigned_to: document.getElementById('t_assigned').value.trim(),
+    staff_notes: document.getElementById('n_staff').value.trim(),
+    public_update: document.getElementById('n_public').value.trim(),
+    email_resident: document.getElementById('n_email').checked
+  };
+  if(!update.staff_notes && !update.public_update && !update.email_resident){ document.getElementById('post_msg').textContent='Enter a note or update.'; return; }
+  document.getElementById('post_spin').style.display='inline-flex'; document.getElementById('post_msg').textContent='';
+  const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_update', id_token:idToken, update})});
+  const data=await res.json(); document.getElementById('post_spin').style.display='none';
+  if(data.ok){
+    document.getElementById('n_staff').value=''; document.getElementById('n_public').value=''; document.getElementById('n_email').checked=false;
+    toast('Posted ✓');
+    await refresh(); await openTicket(current.ticket_id);
+  }else document.getElementById('post_msg').textContent=data.error||'Post failed';
+});
+
+document.getElementById('back').addEventListener('click', closeDetail);
+window.addEventListener('hashchange', ()=>{
+  if(location.hash.startsWith('#ticket/')){
+    const tid=decodeURIComponent(location.hash.split('/')[1]||''); if(tid) openTicket(tid);
+  } else { closeDetail(); }
+});
+
+window.onload = () => {
+  google.accounts.id.initialize({
+    client_id: CLIENT_ID,
+    callback: (resp)=>{ idToken=resp.credential; document.getElementById('me').textContent='Signed in'; refresh(); }
+  });
+  google.accounts.id.renderButton(document.getElementById('gsi'), { theme:'outline', size:'large' });
+};
+</script>
+</body>
+</html>
