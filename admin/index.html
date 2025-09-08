@@ -10,7 +10,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
 <style>
   :root{
-    --bg:#f5f7fb; --panel:#f0f3f9; --card:#ffffff; --ink:#0e1116; --muted:#526170; --brand:#2e7d32; --brand-ink:#ffffff; --border:#e6ebf2; --danger:#c92a2a; --focus:#0ea5e9; --shadow:0 10px 30px rgba(18, 38, 63, .08);
+    --bg:#f5f7fb; --panel:#f0f3f9; --card:#ffffff; --ink:#0e1116; --muted:#526170;
+    --brand:#2e7d32; --brand-ink:#ffffff; --border:#e6ebf2; --danger:#c92a2a; --focus:#0ea5e9;
+    --shadow:0 10px 30px rgba(18, 38, 63, .08);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -21,7 +23,7 @@
   .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:12px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   input,select,button,textarea{padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:#fff0;color:inherit;font:inherit}
-  button.btn{border:1px solid transparent;background:var(--brand);color:var(--brand-ink);font-weight:800;cursor:pointer;display:inline-block;pointer-events:auto}
+  button.btn{border:1px solid transparent;background:var(--brand);color:var(--brand-ink);font-weight:800;cursor:pointer;display:inline-block}
   button.btn.small{padding:6px 10px;border-radius:10px;font-size:.9rem}
   button.ghost{background:transparent;border-color:var(--border)}
   table{width:100%;border-collapse:separate;border-spacing:0 8px;position:relative}
@@ -39,8 +41,12 @@
   :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:10px}
   a.inline{color:var(--brand);text-decoration:none;border-bottom:1px dashed var(--brand)}
   .dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2)}
-  /* tiny debug chip */
-  #probe{position:fixed;left:10px;bottom:10px;background:#111;color:#fff;padding:6px 8px;border-radius:8px;font:12px/1.2 ui-monospace,Menlo;opacity:.8;z-index:2147483647;display:none}
+
+  /* Drawer base */
+  #drawer{position:fixed; inset:0 0 0 0; opacity:0; pointer-events:none; z-index:2147483647}
+  #drawer.show{opacity:1; pointer-events:auto}
+  #drawer_backdrop{position:absolute; inset:0 0 0 0; background:rgba(0,0,0,.28)}
+  #drawer_panel{position:absolute; right:0; top:0; bottom:0; width:min(560px,100%); background:#fff; border-left:1px solid var(--border); box-shadow:var(--shadow); display:flex; flex-direction:column}
 </style>
 </head>
 <body>
@@ -89,7 +95,7 @@
   </section>
 </div>
 
-<!-- Drawer (content lives here; styles are forced inline at runtime) -->
+<!-- Drawer -->
 <div id="drawer" aria-hidden="true">
   <div id="drawer_backdrop"></div>
   <div id="drawer_panel">
@@ -144,15 +150,25 @@
         <div id="timeline" style="display:flex;flex-direction:column;gap:10px;margin-top:8px"></div>
       </div>
 
+      <!-- Clear, split add/update section -->
       <div class="card" style="padding:12px">
         <strong>Add Note / Update</strong>
-        <div class="hint">Internal notes are visible to staff only. Public updates can be emailed to the resident.</div>
-        <label for="n_staff" style="margin-top:8px">Internal note (staff only)</label>
-        <textarea id="n_staff" placeholder="e.g., Called contractor; scheduled for next week"></textarea>
-        <label for="n_public">Public update</label>
-        <textarea id="n_public" placeholder="e.g., Crew dispatched; expect repair within 48 hours"></textarea>
-        <label class="row"><input type="checkbox" id="n_email"> Email resident this public update</label>
-        <div class="row">
+        <p class="muted" style="margin:.4rem 0 1rem">Internal notes are visible to staff only. Public updates may be emailed to the resident.</p>
+
+        <div style="display:grid; gap:14px; grid-template-columns:1fr 1fr; align-items:start">
+          <div>
+            <label for="n_staff"><b>Internal note (staff only)</b></label>
+            <textarea id="n_staff" placeholder="e.g., Called contractor; scheduled for next week" style="width:100%;min-height:96px"></textarea>
+          </div>
+
+          <div>
+            <label for="n_public"><b>Public update</b></label>
+            <textarea id="n_public" placeholder="e.g., Crew dispatched; expect repair within 48 hours" style="width:100%;min-height:96px"></textarea>
+            <label class="row" style="margin-top:6px"><input type="checkbox" id="n_email"> Email resident this public update</label>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
           <button class="btn" id="post" type="button">Post update</button>
           <span class="badge" id="post_spin" style="display:none">Posting…</span>
           <span id="post_msg" class="muted"></span>
@@ -169,80 +185,27 @@
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<div id="probe">probe: idle</div>
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbwgL8hpjAivoSEvDYE61lrLbw8FkBKcylJZxK-e17456wFFDWsaKhqxkFXQzCioujA/exec';
 const CLIENT_ID = '1053304257177-58btmvppdko26jhe3j70959e0gnodivt.apps.googleusercontent.com';
 
-let idToken=null, dataset=[], current=null, bannerOnce=false;
+let idToken=null, dataset=[], current=null;
 
+// helpers
 const $ = (s)=>document.querySelector(s);
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
-function showProbe(text){ const p=$('#probe'); p.textContent='probe: ' + text; p.style.display='block'; }
-
-function forceShowDrawer(){
-  const d = $('#drawer'), b = $('#drawer_backdrop'), p = $('#drawer_panel');
-  if(!d || !b || !p){ console.warn('drawer elements missing'); return; }
-  // force top-level overlay
-  d.setAttribute('aria-hidden','false');
-  d.style.setProperty('position','fixed','important');
-  d.style.setProperty('inset','0 0 0 0','important');
-  d.style.setProperty('opacity','1','important');
-  d.style.setProperty('pointer-events','auto','important');
-  d.style.setProperty('z-index','2147483647','important');
-  d.style.setProperty('display','block','important');
-
-  // backdrop
-  b.style.setProperty('position','absolute','important');
-  b.style.setProperty('inset','0 0 0 0','important');
-  b.style.setProperty('background','rgba(0,0,0,.28)','important');
-
-  // panel
-  p.style.setProperty('position','absolute','important');
-  p.style.setProperty('right','0','important');
-  p.style.setProperty('top','0','important');
-  p.style.setProperty('bottom','0','important');
-  p.style.setProperty('width','min(560px, 100%)','important');
-  p.style.setProperty('background','#fff','important');
-  p.style.setProperty('border-left','1px solid #e6ebf2','important');
-  p.style.setProperty('box-shadow','0 10px 30px rgba(18,38,63,.18)','important');
-  p.style.setProperty('display','flex','important');
-  p.style.setProperty('flex-direction','column','important');
-
-  // big banner the first time so it's undeniably visible
-  if(!bannerOnce){
-    const big = document.createElement('div');
-    big.id = 'drawer_big_banner';
-    big.textContent = 'HELLO — THIS IS THE DRAWER';
-    big.style.cssText = 'background:#ffefc1;color:#111;padding:10px 14px;border-bottom:1px solid #f1d490;font-weight:800;text-align:center';
-    const header = p.querySelector('header');
-    p.insertBefore(big, header.nextSibling);
-    bannerOnce = true;
-    setTimeout(()=>{ const el=$('#drawer_big_banner'); if(el) el.remove(); }, 2500);
-  }
-
-  document.body.style.overflow='hidden';
-  showProbe('drawer open forced++');
-}
-function closeDrawer(){
-  const d=$('#drawer'); if(!d) return;
-  d.setAttribute('aria-hidden','true');
-  ['position','inset','opacity','pointer-events','z-index','display'].forEach(k=>d.style.removeProperty(k));
-  ['position','inset','background'].forEach(k=>$('#drawer_backdrop').style.removeProperty(k));
-  ['position','right','top','bottom','width','background','border-left','box-shadow','display','flex-direction'].forEach(k=>$('#drawer_panel').style.removeProperty(k));
-  document.body.style.overflow='';
-  current=null;
-  showProbe('drawer closed');
-}
+function openDrawer(){ const d=$('#drawer'); d.classList.add('show'); d.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
+function closeDrawer(){ const d=$('#drawer'); d.classList.remove('show'); d.setAttribute('aria-hidden','true'); document.body.style.overflow=''; current=null; }
 function fmtDT(x){ if(!x) return ''; const d=new Date(x); return isNaN(d)? String(x): d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}); }
 
+// error toast
 window.addEventListener('error', (e)=> toast('JS error: ' + (e.message||'unknown')));
 
-// persist token
+// token persistence
 const TOK_KEY='ow_id_token';
 function setToken(tok){ idToken=tok; try{ localStorage.setItem(TOK_KEY, tok || ''); }catch(_){} }
-function getSavedToken(){ try{ return localStorage.getItem(TOK_KEY)||''; }catch(_){ return ''; } }
+function getSavedToken(){ try{ return localStorage.getItem(TOK_KEY)||''; }catch(_){ return ''; }
 
 // auto-refresh filters
 ['q','qs','qc'].forEach(id=>{
@@ -251,7 +214,7 @@ function getSavedToken(){ try{ return localStorage.getItem(TOK_KEY)||''; }catch(
   if(id==='q'){ el.addEventListener('keyup', e=>{ if(e.key==='Enter') refresh(); }); }
 });
 
-// normalizer
+// normalize rows
 function normalizeRow(r){
   const id = r.ticket_id || r.id || r.TicketID || r['Ticket ID'] || r['Ticket Id'];
   return {
@@ -272,7 +235,7 @@ function normalizeRow(r){
   };
 }
 
-// GLOBAL helpers
+// global helpers for opening
 window.OW = {
   openByIdx: async function(idx){
     try{
@@ -287,34 +250,14 @@ window.OW = {
     try{
       if(!Array.isArray(dataset) || dataset.length===0){ await refresh(); }
       const i = (dataset||[]).findIndex(r => (r.ticket_id||'') === String(tid));
-      if(i === -1){ toast(`Ticket ${tid} not in list.`); window.open(`/admin/ticket.html?tid=${encodeURIComponent(tid)}`,'_blank'); return; }
+      if(i === -1){ toast(`Ticket ${tid} not in list.`); return; }
       await openTicketByIndex(i);
     }catch(err){ console.error(err); toast('Open failed: ' + (err && err.message ? err.message : err)); }
   },
-  rows: () => (dataset||[]),
-  first: () => (dataset && dataset[0]) || null,
-  reload: () => refresh(),
-  _debugOpen: () => { forceShowDrawer(); return true; },
-  _probe: () => {
-    const d = document.getElementById('drawer');
-    if(!d) return console.log('drawer element not found');
-    const cs = getComputedStyle(d);
-    const info = {
-      exists: !!d,
-      inline: d.getAttribute('style') || '(none)',
-      computed: {
-        display: cs.display, opacity: cs.opacity, pointerEvents: cs.pointerEvents,
-        position: cs.position, zIndex: cs.zIndex, right: cs.right, top: cs.top, bottom: cs.bottom, left: cs.left,
-        visibility: cs.visibility
-      },
-      ariaHidden: d.getAttribute('aria-hidden')
-    };
-    console.log('drawer probe:', info);
-    return info;
-  }
+  rows: () => (dataset||[])
 };
 
-// render rows
+// table render
 function renderRows(list){
   const tb=$('#rows'); tb.innerHTML='';
   $('#count').textContent=`${list.length} ticket${list.length===1?'':'s'}`;
@@ -333,14 +276,13 @@ function renderRows(list){
     tb.appendChild(tr);
   });
 }
-
-// row click opens too
+// row click also opens
 document.getElementById('rows').addEventListener('click', (e)=>{
   const row = e.target.closest('tr[data-idx]');
   if(row && !e.target.closest('button')){ e.preventDefault(); OW.openByIdx(parseInt(row.dataset.idx,10)); }
 });
 
-// display address (assume Sutton)
+// address display (assume Sutton if missing)
 function displayAddress(r){
   if(r.address && /sutton/i.test(r.address)) return r.address;
   if(r.address) return `${r.address}, Sutton, MA 01590`;
@@ -348,15 +290,12 @@ function displayAddress(r){
   return '—';
 }
 
-// open by index (shows drawer first, then loads timeline)
+// open ticket
 async function openTicketByIndex(idx){
-  if(!Array.isArray(dataset) || idx < 0 || idx >= dataset.length){
-    toast('Row not found (dataset len: ' + (dataset?dataset.length:0) + ')'); return;
-  }
+  if(!Array.isArray(dataset) || idx < 0 || idx >= dataset.length){ toast('Row not found'); return; }
   const row = dataset[idx];
   current = row;
 
-  // populate
   $('#d_title').textContent = `Ticket ${row.ticket_id || ''}`;
   $('#d_tid').textContent = row.ticket_id || '(no id)';
   $('#d_status').value = row.status || 'Open';
@@ -366,20 +305,20 @@ async function openTicketByIndex(idx){
   $('#d_updated').textContent = fmtDT(row.last_updated_at || row.timestamp);
   $('#d_addr').textContent = displayAddress(row);
   $('#d_desc').textContent = row.description || '';
+
   $('#d_rname').textContent = row.reporter_name || '—';
   const em = row.reporter_email || '';
   const a = $('#d_remail'); a.textContent = em || '—'; a.href = em ? `mailto:${em}` : '#';
+  $('#d_rphone').textContent = row.reporter_phone || '—';
 
-  // show drawer FORCEFULLY
-  forceShowDrawer();
+  openDrawer();
 
-  // timeline placeholder + load
   const tbox = document.getElementById('timeline');
   tbox.innerHTML = '<div class="muted">Loading timeline…</div>';
   loadTimeline(row.ticket_id || '');
 }
 
-// load data
+// load table data
 async function refresh(){
   if(!idToken){ toast('Please sign in'); return; }
   const q=$('#q').value.trim(), qs=$('#qs').value, qc=$('#qc').value;
@@ -409,12 +348,15 @@ async function loadTimeline(tid){
     (data.rows||[]).forEach(evt=>{
       const div=document.createElement('div');
       div.style.border='1px solid var(--border)'; div.style.borderRadius='12px'; div.style.padding='10px';
+      const pieces=[];
+      if(evt.status) pieces.push(`Status: ${evt.status}`);
+      if(evt.assigned_to) pieces.push(`Assigned to: ${evt.assigned_to}`);
       div.innerHTML=`
         <div class="row" style="justify-content:space-between">
           <div><b>${evt.action}</b> • <span class="muted">${evt.actor||''}</span></div>
           <div class="muted">${fmtDT(evt.timestamp)}</div>
         </div>
-        ${evt.status?(`<div class="muted" style="margin-top:6px">Status: ${evt.status}</div>`):''}
+        ${pieces.length?(`<div class="muted" style="margin-top:6px">${pieces.join(' • ')}</div>`):''}
         ${evt.public_update?(`<div style="margin-top:6px"><b>Public update</b><div>${evt.public_update}</div></div>`):''}
         ${evt.staff_note?(`<div style="margin-top:6px"><b>Staff note</b><div>${evt.staff_note}</div></div>`):''}
         ${evt.emailed_resident?(`<div class="muted" style="margin-top:6px">Resident emailed ✓</div>`):''}
@@ -426,7 +368,7 @@ async function loadTimeline(tid){
   }
 }
 
-// save + post
+// save changes (status / assignment)
 document.getElementById('save').addEventListener('click', async ()=>{
   if(!current) return;
   const update = {
@@ -441,6 +383,8 @@ document.getElementById('save').addEventListener('click', async ()=>{
   if(data.ok){ toast('Saved ✓'); await refresh(); if(current){ const idx = dataset.findIndex(r=>r.ticket_id===current.ticket_id); if(idx>-1) openTicketByIndex(idx); } }
   else document.getElementById('save_msg').textContent = data.error||'Save failed';
 });
+
+// post internal/public updates
 document.getElementById('post').addEventListener('click', async ()=>{
   if(!current) return;
   const update={
@@ -451,7 +395,9 @@ document.getElementById('post').addEventListener('click', async ()=>{
     public_update: document.getElementById('n_public').value.trim(),
     email_resident: document.getElementById('n_email').checked
   };
-  if(!update.staff_notes && !update.public_update && !update.email_resident){ document.getElementById('post_msg').textContent='Enter a note or update.'; return; }
+  if(!update.staff_notes && !update.public_update && !update.email_resident){
+    document.getElementById('post_msg').textContent='Enter a note or update.'; return;
+  }
   document.getElementById('post_spin').style.display='inline-flex'; document.getElementById('post_msg').textContent='';
   const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_update', id_token:idToken, update})});
   const data=await res.json(); document.getElementById('post_spin').style.display='none';
@@ -461,16 +407,17 @@ document.getElementById('post').addEventListener('click', async ()=>{
   }else document.getElementById('post_msg').textContent=data.error||'Post failed';
 });
 
-// drawer buttons
+// drawer events
 document.getElementById('close').addEventListener('click', closeDrawer);
 document.getElementById('drawer_backdrop').addEventListener('click', closeDrawer);
 
-// map
+// map + geocoding
 let map, mapReady=false, markersLayer, geocodeCache=new Map();
 function ensureMap(){
   if(mapReady) return;
   map = L.map('map', { scrollWheelZoom:true });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png'.replace('{y}','{x}'), { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  // Note: CDN path fix above swaps {y}/{x} to avoid some proxy issues
   markersLayer = L.layerGroup().addTo(map);
   map.setView([42.1501,-71.7637], 12);
   mapReady = true;
@@ -504,6 +451,7 @@ async function geocodeAddress(addr){
 async function plotMap(){
   if(!mapReady) return;
   markersLayer.clearLayers();
+
   const tasks = [];
   for(let idx=0; idx<dataset.length; idx++){
     const r = dataset[idx];
@@ -529,16 +477,18 @@ async function plotMap(){
     m.on('click', ()=> OW.openByIdx(idx));
     markersLayer.addLayer(m);
   });
+
   try{
     if(pts.length){ const b = L.latLngBounds(pts.map(x=>[x.lat, x.lng])); map.fitBounds(b, {padding:[24,24]}); }
     else { map.setView([42.1501,-71.7637], 12); }
   }catch(_){}
 }
 
-// auth + initial
+// auth + initial load
 window.addEventListener('DOMContentLoaded', ()=>{
   const saved = getSavedToken();
   if(saved){ setToken(saved); $('#me').textContent='Signed in'; refresh().then(()=>{ensureMap(); plotMap();}); }
+
   google.accounts.id.initialize({
     client_id: CLIENT_ID,
     callback: (resp)=>{ setToken(resp.credential); $('#me').textContent='Signed in'; refresh().then(()=>{ensureMap(); plotMap();}); }
