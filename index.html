@@ -7,45 +7,46 @@
 <meta name="color-scheme" content="light dark">
 <style>
   :root{
-    --bg:#0b0d11; --bg-card:#12151b; --elev:rgba(255,255,255,.06);
-    --ink:#e9eef7; --muted:#8897a5; --brand:#2ecc71; --brand-ink:#082d1b; --danger:#ff6b6b; --border:#263042;
-    --focus:#7cd2ff; --badge:#1f2a3a;
+    --bg:#f7f9fc; --card:#ffffff; --ink:#0e1116; --muted:#5a6a72; --border:#e6ebf2;
+    --brand:#2e7d32; --brand-ink:#ffffff; --danger:#c92a2a; --focus:#0ea5e9; --badge:#f1f5f9;
+    --shadow: 0 10px 30px rgba(18, 38, 63, .08);
   }
-  @media (prefers-color-scheme:light){
-    :root{ --bg:#f6f8fb; --bg-card:#ffffff; --elev:rgba(0,0,0,.06); --ink:#0e1116; --muted:#526170; --brand:#2e7d32; --brand-ink:#ffffff; --danger:#c92a2a; --border:#e5e9f0; --focus:#0ea5e9; --badge:#eef2f7;}
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#0b0d11; --card:#12151b; --ink:#e9eef7; --muted:#8897a5; --border:#263042; --brand:#2ecc71; --brand-ink:#082d1b; --danger:#ff6b6b; --focus:#7cd2ff; --badge:#0f172a; --shadow: 0 10px 30px rgba(0,0,0,.4);}
   }
   *{box-sizing:border-box}
   html,body{height:100%}
-  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  .wrap{max-width:920px;margin:0 auto;padding:24px}
-  header{display:flex;gap:14px;align-items:center;margin:4px 0 18px}
-  header img{width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 2px 8px var(--elev))}
-  h1{font-size:1.9rem;margin:.1em 0}
-  .card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;box-shadow:0 10px 30px var(--elev);padding:20px}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{max-width:920px;margin:0 auto;padding:28px 20px}
+  header{display:flex;gap:16px;align-items:center;margin:0 0 18px}
+  header img{width:56px;height:56px;object-fit:contain}
+  h1{font-size:2rem;margin:.1em 0}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:20px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media (max-width:760px){ .grid{grid-template-columns:1fr} }
-  label{display:block;font-weight:600;margin:8px 0 6px}
+  label{display:block;font-weight:700;margin:8px 0 6px}
   input[type="text"],input[type="email"],input[type="tel"],input[type="file"],select,textarea{
-    width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:transparent;color:inherit;font:inherit
+    width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:#fff0;color:inherit;font:inherit
   }
   textarea{min-height:110px;resize:vertical}
-  .hint{color:var(--muted);font-size:.9rem}
+  .hint{color:var(--muted);font-size:.95rem}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .btn{appearance:none;border:1px solid transparent;background:var(--brand);color:var(--brand-ink);border-radius:12px;padding:12px 16px;cursor:pointer;font-weight:700}
+  .btn{appearance:none;border:1px solid transparent;background:var(--brand);color:var(--brand-ink);border-radius:12px;padding:12px 18px;cursor:pointer;font-weight:800}
   .btn.secondary{background:transparent;border-color:var(--border);color:var(--ink)}
   .btn:disabled{opacity:.6;cursor:not-allowed}
   details{margin:10px 0 18px}
-  summary{font-weight:700;cursor:pointer}
+  summary{font-weight:800;cursor:pointer}
   .status{margin-top:12px;padding:12px 14px;border-radius:12px;display:none}
-  .ok{background:rgba(46, 204, 113, .14);border:1px solid rgba(46,204,113,.35)}
-  .err{background:rgba(255, 107, 107, .14);border:1px solid rgba(255,107,107,.35)}
+  .ok{background:#e8f5e9;border:1px solid #c8e6c9}
+  .err{background:#ffebee;border:1px solid #ffcdd2;color:var(--danger)}
   .files{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:8px}
-  .thumb{border:1px dashed var(--border);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center}
+  .thumb{border:1px dashed var(--border);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;background:#fff0}
   .thumb img{max-width:100%;max-height:80px;border-radius:8px}
-  .toast{position:fixed;inset:auto 16px 16px auto;background:var(--bg-card);color:var(--ink);border:1px solid var(--border);padding:12px 14px;border-radius:12px;box-shadow:0 10px 30px var(--elev);opacity:0;transform:translateY(8px);transition:.25s}
+  .toast{position:fixed;inset:auto 16px 16px auto;background:var(--card);color:var(--ink);border:1px solid var(--border);padding:12px 14px;border-radius:12px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:.25s}
   .toast.show{opacity:1;transform:none}
-  .badge{display:inline-flex;align-items:center;gap:6px;background:var(--badge);border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:.85rem}
+  .badge{display:inline-flex;align-items:center;gap:6px;background:var(--badge);border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:.9rem}
   :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:10px}
+  .successTitle{font-weight:800;margin:0 0 6px}
 </style>
 </head>
 <body>
@@ -150,7 +151,10 @@
       <span id="spinner" class="badge" style="display:none">Submitting…</span>
     </div>
 
-    <div id="ok" class="status ok" role="status" aria-hidden="true"></div>
+    <div id="ok" class="status ok" role="status" aria-hidden="true">
+      <div class="successTitle">Thanks! We received your report.</div>
+      <div class="hint">If you entered an email, we sent a confirmation.</div>
+    </div>
     <div id="err" class="status err" role="alert" aria-hidden="true"></div>
   </form>
 
@@ -163,9 +167,9 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbwgL8hpjAivoSEvDYE61lrLbw8FkBKcylJZxK-e17456wFFDWsaKhqxkFXQzCioujA/exec'; // <-- replace with your Apps Script exec URL
+const API = 'YOUR_APPS_SCRIPT_EXEC_URL'; // keep your real URL here
 
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3000); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2800); }
 
 const previews = document.getElementById('previews');
 document.getElementById('files').addEventListener('change', (e)=>{
@@ -231,7 +235,7 @@ document.getElementById('f').addEventListener('submit', async (e)=>{
     const data = await res.json();
     spin.style.display='none';
     if(data.ok){
-      ok.textContent = data.id ? `Thanks! Ticket ${data.id} received. We emailed you a confirmation.` : 'Thanks! We received your report.';
+      ok.innerHTML = `<div class="successTitle">Thanks! Ticket ${data.id || ''} received.</div><div class="hint">We emailed you a confirmation.</div>`;
       ok.style.display='block'; ok.removeAttribute('aria-hidden');
       const cat = payload.category;
       form.reset();
