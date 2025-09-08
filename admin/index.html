@@ -36,13 +36,12 @@
   .toast{position:fixed;inset:auto 16px 16px auto;background:var(--card);border:1px solid var(--border);padding:12px 14px;border-radius:12px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:.25s;z-index:200}
   .toast.show{opacity:1;transform:none}
 
-  /* Drawer: use opacity + pointer-events instead of display:none */
+  /* Drawer: base styles (will be overridden with inline !important on open) */
   .drawer{
-    position:fixed; inset:0 0 0 auto;
-    opacity:0; pointer-events:none; transition:opacity .18s ease-out;
-    z-index:10000; /* very high to beat any site CSS */
+    position:fixed; right:0; top:0; bottom:0; left:auto;
+    opacity:0; pointer-events:none;
+    z-index:10000;
   }
-  .drawer.open{ opacity:1; pointer-events:auto; }
   .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.28)}
   .panel{
     position:absolute;right:0;top:0;bottom:0;width:min(560px,100%);
@@ -56,6 +55,9 @@
   :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:10px}
   a.inline{color:var(--brand);text-decoration:none;border-bottom:1px dashed var(--brand)}
   .dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2)}
+
+  /* Tiny debug probe badge (bottom-left) */
+  #probe{position:fixed;left:10px;bottom:10px;background:#111;color:#fff;padding:6px 8px;border-radius:8px;font:12px/1.2 ui-monospace, SFMono-Regular, Menlo;opacity:.8;z-index:2147483647;display:none}
 </style>
 </head>
 <body>
@@ -184,6 +186,7 @@
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="probe">probe: idle</div>
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbwgL8hpjAivoSEvDYE61lrLbw8FkBKcylJZxK-e17456wFFDWsaKhqxkFXQzCioujA/exec';
@@ -194,15 +197,36 @@ let idToken=null, dataset=[], current=null;
 // ===== helpers =====
 const $ = (s)=>document.querySelector(s);
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function showProbe(text){ const p=$('#probe'); p.textContent='probe: ' + text; p.style.display='block'; }
+function forceShowDrawerStyles(d){
+  const s = d.style;
+  s.setProperty('position','fixed','important');
+  s.setProperty('right','0','important');
+  s.setProperty('top','0','important');
+  s.setProperty('bottom','0','important');
+  s.setProperty('left','auto','important');
+  s.setProperty('opacity','1','important');
+  s.setProperty('pointer-events','auto','important');
+  s.setProperty('z-index','2147483647','important'); // max int-ish
+  s.setProperty('display','block','important'); // in case something set display:none !important
+}
 function openDrawer(){
   const d=$('#drawer');
   if(!d){ console.warn('drawer element missing'); return; }
-  d.classList.add('open');
+  forceShowDrawerStyles(d);
   d.setAttribute('aria-hidden','false');
   document.body.style.overflow='hidden';
-  console.debug('drawer opened');
+  showProbe('drawer open forced');
 }
-function closeDrawer(){ const d=$('#drawer'); if(!d) return; d.classList.remove('open'); d.setAttribute('aria-hidden','true'); document.body.style.overflow=''; current=null; }
+function closeDrawer(){
+  const d=$('#drawer'); if(!d) return;
+  d.setAttribute('aria-hidden','true');
+  // remove inline styles but keep visible until closed
+  ['opacity','pointer-events','z-index','display','position','right','top','bottom','left'].forEach(k=>d.style.removeProperty(k));
+  document.body.style.overflow='';
+  current=null;
+  showProbe('drawer closed');
+}
 function fmtDT(x){ if(!x) return ''; const d=new Date(x); return isNaN(d)? String(x): d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}); }
 
 // Global error toast
@@ -263,7 +287,24 @@ window.OW = {
   rows: () => (dataset||[]),
   first: () => (dataset && dataset[0]) || null,
   reload: () => refresh(),
-  _debugOpen: () => openDrawer()
+  _debugOpen: () => { openDrawer(); return true; },
+  _probe: () => {
+    const d = document.getElementById('drawer');
+    if(!d) return console.log('drawer element not found');
+    const cs = getComputedStyle(d);
+    const info = {
+      exists: !!d,
+      inline: d.getAttribute('style') || '(none)',
+      computed: {
+        display: cs.display, opacity: cs.opacity, pointerEvents: cs.pointerEvents,
+        position: cs.position, zIndex: cs.zIndex, right: cs.right, top: cs.top, bottom: cs.bottom, left: cs.left,
+        visibility: cs.visibility
+      },
+      ariaHidden: d.getAttribute('aria-hidden')
+    };
+    console.log('drawer probe:', info);
+    return info;
+  }
 };
 
 // render rows
@@ -327,7 +368,7 @@ async function openTicketByIndex(idx){
   a.href = em ? `mailto:${em}` : '#';
   document.getElementById('d_rphone').textContent = row.reporter_phone || '—';
 
-  // show drawer immediately (no waiting)
+  // force the drawer visible right away
   openDrawer();
 
   // show lightweight placeholder then load timeline
