@@ -30,10 +30,10 @@
   tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px;border-right:1px solid var(--border)}
   .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:.85rem}
   .pill{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:.8rem}
-  .toast{position:fixed;inset:auto 16px 16px auto;background:var(--card);border:1px solid var(--border);padding:12px 14px;border-radius:12px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:.25s;z-index:50}
+  .toast{position:fixed;inset:auto 16px 16px auto;background:var(--card);border:1px solid var(--border);padding:12px 14px;border-radius:12px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:.25s;z-index:200}
   .toast.show{opacity:1;transform:none}
   /* Drawer */
-  .drawer{position:fixed;inset:0 0 0 auto;display:none;z-index:40}
+  .drawer{position:fixed;inset:0 0 0 auto;display:none;z-index:300}
   .drawer.open{display:block}
   .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.25)}
   .panel{position:absolute;right:0;top:0;bottom:0;width:min(560px,100%);background:var(--card);border-left:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column}
@@ -201,29 +201,63 @@ function getSavedToken(){ try{ return localStorage.getItem(TOK_KEY)||''; }catch(
   if(id==='q'){ el.addEventListener('keyup', e=>{ if(e.key==='Enter') refresh(); }); }
 });
 
-// --- table ---
+// --- normalize rows from API (be tolerant to varying keys) ---
+function normalizeRow(r){
+  const id = r.ticket_id || r.id || r.TicketID || r['ticket id'] || r['Ticket Id'] || r['Ticket ID'];
+  const status = r.status || r.Status;
+  const category = r.category_label || r.category || r.Category;
+  const description = r.description || r.Description;
+  const address = r.address || r.Address;
+  const lat = r.lat || r.latitude || r.Lat || r.Latitude;
+  const lng = r.lng || r.lon || r.long || r.Lng || r.Longitude;
+  const reporter_name = r.reporter_name || r.Name || r.Reporter || r['Reporter Name'];
+  const reporter_email = r.reporter_email || r.Email || r['Reporter Email'];
+  const reporter_phone = r.reporter_phone || r.Phone || r['Reporter Phone'];
+  const priority_hint = r.priority_hint || r.Priority || r['Priority'];
+  const assigned_to = r.assigned_to || r.Assigned || r['Assigned To'];
+  const last_updated_at = r.last_updated_at || r.updated_at || r.Updated || r['Last Updated'];
+  const timestamp = r.timestamp || r.created_at || r.Created || r['Created At'];
+  return {
+    ticket_id: String(id||'').trim(),
+    status: status||'',
+    category: category||'',
+    description: description||'',
+    address: address||'',
+    lat: lat||'',
+    lng: lng||'',
+    reporter_name: reporter_name||'',
+    reporter_email: reporter_email||'',
+    reporter_phone: reporter_phone||'',
+    priority_hint: priority_hint||'normal',
+    assigned_to: assigned_to||'',
+    last_updated_at: last_updated_at||'',
+    timestamp: timestamp||''
+  };
+}
+
+// --- table render using row index (no string id dependency) ---
 function renderRows(list){
   const tb=$('#rows'); tb.innerHTML='';
   $('#count').textContent=`${list.length} ticket${list.length===1?'':'s'}`;
-  list.forEach(r=>{
+  list.forEach((r, idx)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td><b>${r.ticket_id}</b><div class="muted" style="font-size:.85rem">${r.priority_hint||'normal'}</div></td>
+      <td><b>${r.ticket_id || '(no id)'}</b><div class="muted" style="font-size:.85rem">${r.priority_hint||'normal'}</div></td>
       <td><span class="pill">${r.status||''}</span></td>
       <td>${r.category||''}</td>
       <td>${(r.description||'').slice(0,120)}</td>
       <td>${displayAddress(r)}</td>
       <td>${r.reporter_name||''}<div class="muted" style="font-size:.85rem">${r.reporter_email||''}</div></td>
       <td>${fmtDT(r.last_updated_at || r.timestamp)}</td>
-      <td><button class="ghost view" data-id="${r.ticket_id}">Open</button></td>`;
+      <td><button class="ghost view" data-idx="${idx}">Open</button></td>`;
     tb.appendChild(tr);
   });
 }
 
-// robust event delegation for view buttons
+// robust event delegation for view buttons (by index)
 document.getElementById('rows').addEventListener('click', (e)=>{
   const btn = e.target.closest('button.view');
-  if(btn){ e.preventDefault(); e.stopPropagation(); openTicket(btn.getAttribute('data-id')); }
+  if(btn){ e.preventDefault(); e.stopPropagation(); openTicketByIndex(parseInt(btn.getAttribute('data-idx'),10)); }
 });
 
 // assume Sutton, MA if not in address
@@ -234,28 +268,29 @@ function displayAddress(r){
   return '—';
 }
 
-// --- load + show ticket ---
-async function openTicket(tid){
-  current = dataset.find(x=>x.ticket_id===tid);
-  if(!current){ toast('Ticket not found'); return; }
+// --- open ticket by index (always succeeds if row exists) ---
+async function openTicketByIndex(idx){
+  const row = dataset[idx];
+  if(!row){ toast('Row not found'); return; }
+  current = row;
   $('#d_title').textContent = 'Ticket';
-  $('#d_tid').textContent = current.ticket_id;
-  $('#d_status').value = current.status || 'Open';
-  $('#d_assigned').value = current.assigned_to || '';
-  $('#d_cat').textContent = current.category || '';
-  $('#d_prio').textContent = current.priority_hint || 'normal';
-  $('#d_updated').textContent = fmtDT(current.last_updated_at || current.timestamp);
-  $('#d_addr').textContent = displayAddress(current);
-  $('#d_desc').textContent = current.description || '';
+  $('#d_tid').textContent = row.ticket_id || '(no id)';
+  $('#d_status').value = row.status || 'Open';
+  $('#d_assigned').value = row.assigned_to || '';
+  $('#d_cat').textContent = row.category || '';
+  $('#d_prio').textContent = row.priority_hint || 'normal';
+  $('#d_updated').textContent = fmtDT(row.last_updated_at || row.timestamp);
+  $('#d_addr').textContent = displayAddress(row);
+  $('#d_desc').textContent = row.description || '';
 
   // Requestor
-  $('#d_rname').textContent = current.reporter_name || '—';
-  const em = (current.reporter_email||'');
+  $('#d_rname').textContent = row.reporter_name || '—';
+  const em = (row.reporter_email||'');
   $('#d_remail').textContent = em || '—';
   $('#d_remail').href = em ? `mailto:${em}` : '#';
-  $('#d_rphone').textContent = current.reporter_phone || '—';
+  $('#d_rphone').textContent = row.reporter_phone || '—';
 
-  await loadTimeline(current.ticket_id);
+  await loadTimeline(row.ticket_id || '');
   openDrawer();
 }
 
@@ -269,7 +304,7 @@ async function refresh(){
   });
   const data = await res.json();
   if(data.ok){
-    dataset=data.rows;
+    dataset=(data.rows||[]).map(normalizeRow);
     renderRows(dataset);
     ensureMap(); plotMap(); // update map on every refresh
   } else {
@@ -285,7 +320,7 @@ async function loadTimeline(tid){
   const data=await res.json();
   const box=$('#timeline'); box.innerHTML='';
   if(!data.ok){ box.textContent='Could not load timeline'; return; }
-  data.rows.forEach(evt=>{
+  (data.rows||[]).forEach(evt=>{
     const div=document.createElement('div');
     div.style.border='1px solid var(--border)'; div.style.borderRadius='12px'; div.style.padding='10px';
     div.innerHTML=`
@@ -314,7 +349,7 @@ document.getElementById('save').addEventListener('click', async ()=>{
   document.getElementById('save_spin').style.display='inline-flex'; document.getElementById('save_msg').textContent='';
   const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_update', id_token:idToken, update})});
   const data=await res.json(); document.getElementById('save_spin').style.display='none';
-  if(data.ok){ toast('Saved ✓'); await refresh(); if(current) await openTicket(current.ticket_id); }
+  if(data.ok){ toast('Saved ✓'); await refresh(); if(current){ const idx = dataset.findIndex(r=>r.ticket_id===current.ticket_id); if(idx>-1) openTicketByIndex(idx); } }
   else document.getElementById('save_msg').textContent = data.error||'Save failed';
 });
 
@@ -335,7 +370,7 @@ document.getElementById('post').addEventListener('click', async ()=>{
   const data=await res.json(); document.getElementById('post_spin').style.display='none';
   if(data.ok){
     document.getElementById('n_staff').value=''; document.getElementById('n_public').value=''; document.getElementById('n_email').checked=false;
-    toast('Posted ✓'); await refresh(); if(current) await openTicket(current.ticket_id);
+    toast('Posted ✓'); await refresh(); if(current){ const idx = dataset.findIndex(r=>r.ticket_id===current.ticket_id); if(idx>-1) openTicketByIndex(idx); }
   }else document.getElementById('post_msg').textContent=data.error||'Post failed';
 });
 
@@ -343,7 +378,7 @@ document.getElementById('post').addEventListener('click', async ()=>{
 document.getElementById('close').addEventListener('click', closeDrawer);
 document.getElementById('backdrop').addEventListener('click', closeDrawer);
 
-// --- map (Leaflet) with color-coded markers ---
+// --- map (Leaflet) with color-coded markers and direct index open ---
 let map, mapReady=false, markersLayer, geocodeCache=new Map();
 function ensureMap(){
   if(mapReady) return;
@@ -390,37 +425,38 @@ async function plotMap(){
   if(!mapReady) return;
   markersLayer.clearLayers();
 
-  // Collect points for Open & In Progress
+  // prepare promises with row index
   const tasks = [];
-  for(const r of dataset){
+  for(let idx=0; idx<dataset.length; idx++){
+    const r = dataset[idx];
     const status = String(r.status||'');
     if(!/^(Open|In Progress)$/i.test(status)) continue;
     if(r.lat && r.lng){
-      tasks.push(Promise.resolve({r, lat:parseFloat(r.lat), lng:parseFloat(r.lng)}));
+      tasks.push(Promise.resolve({idx, r, lat:parseFloat(r.lat), lng:parseFloat(r.lng)}));
     }else if(r.address){
-      tasks.push(geocodeAddress(r.address).then(pt => pt ? ({r, lat:pt.lat, lng:pt.lng}) : null));
+      tasks.push(geocodeAddress(r.address).then(pt => pt ? ({idx, r, lat:pt.lat, lng:pt.lng}) : null));
     }
   }
 
   const pts = (await Promise.all(tasks)).filter(Boolean);
 
-  pts.forEach(({r,lat,lng})=>{
+  pts.forEach(({idx, r, lat, lng})=>{
     const color = colorForStatus(r.status);
     const m = L.marker([lat,lng], { icon: dotIcon(color) });
     const safeAddr = (displayAddress(r)||'').replace(/</g,'&lt;');
     m.bindPopup(`
-      <b>${r.ticket_id}</b><br>
+      <b>${r.ticket_id || '(no id)'}</b><br>
       ${r.status || ''} • ${r.category || ''}<br>
       ${safeAddr}<br>
-      <button data-open="${r.ticket_id}" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid #e6ebf2;background:#fff0;cursor:pointer">Open</button>
+      <button data-idx="${idx}" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid #e6ebf2;background:#fff0;cursor:pointer">Open</button>
     `);
     // Open via popup button
     m.on('popupopen', e=>{
-      const btn = e.popup.getElement().querySelector('button[data-open]');
-      if(btn){ btn.addEventListener('click', ()=> { openTicket(btn.getAttribute('data-open')); map.closePopup(); }); }
+      const btn = e.popup.getElement().querySelector('button[data-idx]');
+      if(btn){ btn.addEventListener('click', ()=> { openTicketByIndex(parseInt(btn.getAttribute('data-idx'),10)); map.closePopup(); }); }
     });
     // Also allow clicking marker itself
-    m.on('click', ()=> openTicket(r.ticket_id));
+    m.on('click', ()=> openTicketByIndex(idx));
     markersLayer.addLayer(m);
   });
 
