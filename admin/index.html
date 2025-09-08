@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>OpenWorks Admin</title>
 <meta name="robots" content="noindex, nofollow">
+<!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
 <style>
@@ -24,8 +26,7 @@
   button.btn.small{padding:6px 10px;border-radius:10px;font-size:.9rem}
   button.ghost{background:transparent;border-color:var(--border);cursor:pointer}
   .chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fff}
-  .danger{color:var(--danger)}
-  .alert{background:#fff; border:1px solid var(--danger); color:var(--danger); padding:10px 12px; border-radius:12px; margin-bottom:12px}
+  .alert{background:#fff;border:1px solid var(--danger);color:var(--danger);padding:10px 12px;border-radius:12px;margin-bottom:12px}
   table{width:100%;border-collapse:separate;border-spacing:0 8px}
   th{font-size:.85rem;text-transform:uppercase;letter-spacing:.02em;color:var(--muted);text-align:left;padding:0 10px}
   td{background:var(--card);border:1px solid var(--border);padding:10px;border-left:none;border-right:none;vertical-align:top}
@@ -41,13 +42,11 @@
   :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:10px}
   a.inline{color:var(--brand);text-decoration:none;border-bottom:1px dashed var(--brand)}
   .dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2)}
-
   /* Drawer */
   #drawer{position:fixed;inset:0 0 0 0;opacity:0;pointer-events:none;z-index:2147483647}
   #drawer.show{opacity:1;pointer-events:auto}
   #drawer_backdrop{position:absolute;inset:0;background:rgba(0,0,0,.28)}
   #drawer_panel{position:absolute;right:0;top:0;bottom:0;width:min(560px,100%);background:#fff;border-left:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column}
-
   .empty{display:flex;align-items:center;justify-content:center;height:240px;color:var(--muted)}
 </style>
 </head>
@@ -58,7 +57,10 @@
     <strong>OpenWorks Admin</strong>
   </div>
   <div class="row" id="authRow">
-    <div id="gsi"></div>
+    <!-- Fallback button is visible immediately -->
+    <button id="fallbackSignIn" class="btn">Sign in</button>
+    <!-- GSI will render here when script is ready -->
+    <div id="gsi" style="display:none"></div>
     <span id="me" class="chip" style="display:none"></span>
     <button id="signout" class="ghost" style="display:none">Sign out</button>
   </div>
@@ -198,7 +200,7 @@ const CLIENT_ID = '1053304257177-58btmvppdko26jhe3j70959e0gnodivt.apps.googleuse
 
 let idToken=null, dataset=[], current=null;
 
-// ============== helpers ==============
+// ===== helpers =====
 const $ = (s)=>document.querySelector(s);
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function fmtDT(x){ if(!x) return ''; const d=new Date(x); return isNaN(d)? String(x): d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}); }
@@ -207,22 +209,19 @@ function clearError(){ const e=$('#err'); e.textContent=''; e.style.display='non
 function openDrawer(){ const d=$('#drawer'); d.classList.add('show'); d.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
 function closeDrawer(){ const d=$('#drawer'); d.classList.remove('show'); d.setAttribute('aria-hidden','true'); document.body.style.overflow=''; current=null; }
 
-// auth token persist
 const TOK_KEY='ow_id_token';
 function setToken(tok){ idToken=tok; try{ localStorage.setItem(TOK_KEY, tok||''); }catch(_){} }
 function getSavedToken(){ try{ return localStorage.getItem(TOK_KEY)||''; }catch(_){ return ''; }
-function decodeEmailFromToken(tok){
-  try{ const p=JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return p.email||''; }catch(_){ return ''; }
-}
+function decodeEmailFromToken(tok){ try{ return JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).email || ''; } catch { return ''; } }
 
-// ============== filters UX ==============
+// ===== filters =====
 ['q','qs','qc'].forEach(id=>{
   const el = document.getElementById(id);
   el.addEventListener('change', refresh);
   if(id==='q'){ el.addEventListener('keyup', e=>{ if(e.key==='Enter') refresh(); }); }
 });
 
-// ============== normalize rows ==============
+// ===== normalize =====
 function normalizeRow(r){
   const id = r.ticket_id || r.id || r.TicketID || r['Ticket ID'] || r['Ticket Id'];
   return {
@@ -243,38 +242,24 @@ function normalizeRow(r){
   };
 }
 
-// ============== global helpers ==============
+// ===== global open helpers =====
 window.OW = {
   openByIdx: async function(idx){
-    try{
-      if(!Array.isArray(dataset) || dataset.length===0){ await refresh(); }
-      if(!Array.isArray(dataset) || dataset.length===0){ return; }
-      if(idx == null || isNaN(idx)) idx = 0;
-      if(idx < 0 || idx >= dataset.length){ toast(`Row ${idx} out of range`); return; }
-      await openTicketByIndex(idx);
-    }catch(err){ console.error(err); toast('Open failed: ' + (err && err.message ? err.message : err)); }
-  },
-  openById: async function(tid){
-    try{
-      if(!Array.isArray(dataset) || dataset.length===0){ await refresh(); }
-      const i = (dataset||[]).findIndex(r => (r.ticket_id||'') === String(tid));
-      if(i === -1){ toast(`Ticket ${tid} not in list.`); return; }
-      await openTicketByIndex(i);
-    }catch(err){ console.error(err); toast('Open failed'); }
+    if(!Array.isArray(dataset) || dataset.length===0){ await refresh(); }
+    if(!Array.isArray(dataset) || dataset.length===0){ return; }
+    if(idx == null || isNaN(idx)) idx = 0;
+    if(idx < 0 || idx >= dataset.length){ toast(`Row ${idx} out of range`); return; }
+    await openTicketByIndex(idx);
   },
   rows: () => (dataset||[])
 };
 
-// ============== render table ==============
+// ===== table render =====
 function renderRows(list){
   const tb=$('#rows'); tb.innerHTML='';
   $('#count').textContent = Number.isFinite(list.length) ? `${list.length} ticket${list.length===1?'':'s'}` : '—';
-  if(!list.length){
-    $('#empty').style.display = idToken ? 'block' : 'block'; // same message if no token too
-    return;
-  } else {
-    $('#empty').style.display='none';
-  }
+  if(!list.length){ $('#empty').style.display = 'block'; return; }
+  $('#empty').style.display='none';
 
   list.forEach((r, idx)=>{
     const tr=document.createElement('tr');
@@ -296,7 +281,7 @@ document.getElementById('rows').addEventListener('click', (e)=>{
   if(row && !e.target.closest('button')){ e.preventDefault(); OW.openByIdx(parseInt(row.dataset.idx,10)); }
 });
 
-// ============== address display ==============
+// ===== address display =====
 function displayAddress(r){
   if(r.address && /sutton/i.test(r.address)) return r.address;
   if(r.address) return `${r.address}, Sutton, MA 01590`;
@@ -304,11 +289,10 @@ function displayAddress(r){
   return '—';
 }
 
-// ============== open ticket ==============
+// ===== open ticket =====
 async function openTicketByIndex(idx){
   const row = dataset[idx]; if(!row) return;
   current = row;
-
   $('#d_title').textContent = `Ticket ${row.ticket_id || ''}`;
   $('#d_tid').textContent = row.ticket_id || '(no id)';
   $('#d_status').value = row.status || 'Open';
@@ -318,7 +302,6 @@ async function openTicketByIndex(idx){
   $('#d_updated').textContent = fmtDT(row.last_updated_at || row.timestamp);
   $('#d_addr').textContent = displayAddress(row);
   $('#d_desc').textContent = row.description || '';
-
   $('#d_rname').textContent = row.reporter_name || '—';
   const em = row.reporter_email || '';
   const a = $('#d_remail'); a.textContent = em || '—'; a.href = em ? `mailto:${em}` : '#';
@@ -330,7 +313,7 @@ async function openTicketByIndex(idx){
   loadTimeline(row.ticket_id || '');
 }
 
-// ============== load data ==============
+// ===== load data =====
 async function refresh(){
   clearError();
   if(!idToken){
@@ -345,7 +328,8 @@ async function refresh(){
       method:'POST', headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({ action:'admin_list', id_token:idToken, filters:{ q, status:qs, category:qc } })
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data = {}; try{ data = JSON.parse(text); }catch{ showError('Admin API returned non-JSON'); return; }
     if(data.ok){
       dataset=(data.rows||[]).map(normalizeRow);
       renderRows(dataset);
@@ -361,7 +345,7 @@ async function refresh(){
 }
 document.getElementById('refresh').addEventListener('click', refresh);
 
-// ============== timeline ==============
+// ===== timeline =====
 async function loadTimeline(tid){
   try{
     const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_activity', id_token:idToken, ticket_id: tid})});
@@ -389,7 +373,7 @@ async function loadTimeline(tid){
   }catch(err){ $('#timeline').textContent = 'Timeline failed to load.'; }
 }
 
-// ============== save + post ==============
+// ===== save + post =====
 document.getElementById('save').addEventListener('click', async ()=>{
   if(!current) return;
   const update = {
@@ -426,11 +410,11 @@ document.getElementById('post').addEventListener('click', async ()=>{
   }else document.getElementById('post_msg').textContent=data.error||'Post failed';
 });
 
-// ============== drawer controls ==============
+// ===== drawer controls =====
 document.getElementById('close').addEventListener('click', closeDrawer);
 document.getElementById('drawer_backdrop').addEventListener('click', closeDrawer);
 
-// ============== map + geocoding ==============
+// ===== map + geocoding =====
 let map, mapReady=false, markersLayer, geocodeCache=new Map();
 function ensureMap(){
   if(mapReady) return;
@@ -493,41 +477,66 @@ async function plotMap(){
   }catch(_){}
 }
 
-// ============== auth UI + boot ==============
+// ===== AUTH UI =====
 function renderAuthUI(){
   const saved = getSavedToken();
   if(saved && !idToken) idToken = saved;
   const email = idToken ? decodeEmailFromToken(idToken) : '';
   const me = document.getElementById('me');
   const signout = document.getElementById('signout');
+  const gsi = document.getElementById('gsi');
+  const fb = document.getElementById('fallbackSignIn');
+
   if(email){
     me.textContent = `Signed in as ${email}`;
     me.style.display='inline-flex';
     signout.style.display='inline-block';
-    document.getElementById('gsi').style.display='none';
+    gsi.style.display='none';
+    fb.style.display='none';
     document.getElementById('empty').textContent='No tickets match your filters.';
   }else{
     me.style.display='none';
     signout.style.display='none';
-    document.getElementById('gsi').style.display='block';
-    document.getElementById('empty').textContent='Sign in to load tickets.';
+    // Show fallback until GSI is ready
+    fb.style.display='inline-block';
   }
 }
+
+// Fallback sign-in (works once google.accounts is available; otherwise shows hint)
+document.getElementById('fallbackSignIn').addEventListener('click', ()=>{
+  if(window.google && google.accounts && google.accounts.id){
+    google.accounts.id.prompt();
+  }else{
+    alert('Google sign-in script is still loading or blocked. Please allow accounts.google.com and refresh.');
+  }
+});
+
 document.getElementById('signout').addEventListener('click', ()=>{
   setToken(''); renderAuthUI();
   document.getElementById('rows').innerHTML=''; document.getElementById('count').textContent='—'; document.getElementById('empty').style.display='block';
 });
 
+// ===== Boot =====
 window.addEventListener('DOMContentLoaded', ()=>{
   renderAuthUI();
-  const saved = getSavedToken();
-  if(saved){ setToken(saved); renderAuthUI(); refresh().then(()=>{ensureMap(); plotMap();}); }
 
-  google.accounts.id.initialize({
-    client_id: CLIENT_ID,
-    callback: (resp)=>{ setToken(resp.credential); renderAuthUI(); refresh().then(()=>{ensureMap(); plotMap();}); }
-  });
-  google.accounts.id.renderButton(document.getElementById('gsi'), { theme:'outline', size:'large' });
+  // Initialize GSI when script is available
+  const initGSI = () => {
+    if(!(window.google && google.accounts && google.accounts.id)) { setTimeout(initGSI, 300); return; }
+    google.accounts.id.initialize({
+      client_id: CLIENT_ID,
+      callback: (resp)=>{ setToken(resp.credential); renderAuthUI(); refresh().then(()=>{ensureMap(); plotMap();}); }
+    });
+    // Replace fallback with the Google button
+    document.getElementById('gsi').style.display='block';
+    google.accounts.id.renderButton(document.getElementById('gsi'), { theme:'outline', size:'large' });
+    document.getElementById('fallbackSignIn').style.display='none';
+
+    // If already signed in from previous session, load immediately
+    const saved = getSavedToken();
+    if(saved){ setToken(saved); renderAuthUI(); refresh().then(()=>{ensureMap(); plotMap();}); }
+  };
+  initGSI();
 });
 </script>
 </body>
