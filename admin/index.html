@@ -56,14 +56,15 @@
     <img alt="Seal" src="https://upload.wikimedia.org/wikipedia/commons/2/27/Seal_of_Sutton%2C_Massachusetts.png?20231220025329">
     <strong>OpenWorks Admin</strong>
   </div>
-  <div class="row" id="authRow">
-    <!-- Fallback button is visible immediately -->
-    <button id="fallbackSignIn" class="btn">Sign in</button>
-    <!-- GSI will render here when script is ready -->
-    <div id="gsi" style="display:none"></div>
-    <span id="me" class="chip" style="display:none"></span>
-    <button id="signout" class="ghost" style="display:none">Sign out</button>
-  </div>
+  <!-- AUTH -->
+<div class="row" id="authRow">
+  <!-- Always-visible container for the official Google button -->
+  <div id="gsi" style="min-width:200px; min-height:40px; display:inline-block"></div>
+
+  <!-- Signed-in chip + sign-out -->
+  <span id="me" class="chip" style="display:none"></span>
+  <button id="signout" class="ghost" style="display:none">Sign out</button>
+</div>
 </header>
 
 <div class="wrap">
