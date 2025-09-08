@@ -35,18 +35,26 @@
   .pill{padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:.8rem}
   .toast{position:fixed;inset:auto 16px 16px auto;background:var(--card);border:1px solid var(--border);padding:12px 14px;border-radius:12px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);transition:.25s;z-index:200}
   .toast.show{opacity:1;transform:none}
-  /* Drawer */
-  .drawer{position:fixed;inset:0 0 0 auto;display:none;z-index:300}
-  .drawer.open{display:block}
-  .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.25)}
-  .panel{position:absolute;right:0;top:0;bottom:0;width:min(560px,100%);background:var(--card);border-left:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column}
+
+  /* Drawer: use opacity + pointer-events instead of display:none */
+  .drawer{
+    position:fixed; inset:0 0 0 auto;
+    opacity:0; pointer-events:none; transition:opacity .18s ease-out;
+    z-index:10000; /* very high to beat any site CSS */
+  }
+  .drawer.open{ opacity:1; pointer-events:auto; }
+  .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.28)}
+  .panel{
+    position:absolute;right:0;top:0;bottom:0;width:min(560px,100%);
+    background:var(--card);border-left:1px solid var(--border);
+    box-shadow:var(--shadow);display:flex;flex-direction:column
+  }
   .panel header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
   .panel .content{padding:14px;overflow:auto;display:flex;flex-direction:column;gap:12px}
   textarea{min-height:84px}
   #map{height:360px;border-radius:14px}
   :focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:10px}
   a.inline{color:var(--brand);text-decoration:none;border-bottom:1px dashed var(--brand)}
-  /* Colored marker dots */
   .dot{width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2)}
 </style>
 </head>
@@ -85,7 +93,6 @@
       <span class="badge" id="count" style="margin-left:auto">0 tickets</span>
     </div>
 
-    <!-- Map embedded on the tickets page -->
     <div id="map" role="region" aria-label="Open & In Progress map"></div>
 
     <table style="margin-top:12px">
@@ -97,7 +104,7 @@
   </section>
 </div>
 
-<!-- Right-hand drawer (detail) -->
+<!-- Drawer -->
 <div class="drawer" id="drawer" aria-hidden="true">
   <div class="backdrop" id="backdrop"></div>
   <div class="panel">
@@ -187,8 +194,15 @@ let idToken=null, dataset=[], current=null;
 // ===== helpers =====
 const $ = (s)=>document.querySelector(s);
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
-function openDrawer(){ const d=$('#drawer'); d.classList.add('open'); d.setAttribute('aria-hidden','false'); }
-function closeDrawer(){ const d=$('#drawer'); d.classList.remove('open'); d.setAttribute('aria-hidden','true'); current=null; }
+function openDrawer(){
+  const d=$('#drawer');
+  if(!d){ console.warn('drawer element missing'); return; }
+  d.classList.add('open');
+  d.setAttribute('aria-hidden','false');
+  document.body.style.overflow='hidden';
+  console.debug('drawer opened');
+}
+function closeDrawer(){ const d=$('#drawer'); if(!d) return; d.classList.remove('open'); d.setAttribute('aria-hidden','true'); document.body.style.overflow=''; current=null; }
 function fmtDT(x){ if(!x) return ''; const d=new Date(x); return isNaN(d)? String(x): d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}); }
 
 // Global error toast
@@ -248,10 +262,11 @@ window.OW = {
   },
   rows: () => (dataset||[]),
   first: () => (dataset && dataset[0]) || null,
-  reload: () => refresh()
+  reload: () => refresh(),
+  _debugOpen: () => openDrawer()
 };
 
-// render rows (row is clickable + explicit inline onclick)
+// render rows
 function renderRows(list){
   const tb=$('#rows'); tb.innerHTML='';
   $('#count').textContent=`${list.length} ticket${list.length===1?'':'s'}`;
@@ -266,9 +281,7 @@ function renderRows(list){
       <td>${displayAddress(r)}</td>
       <td>${r.reporter_name||''}<div class="muted" style="font-size:.85rem">${r.reporter_email||''}</div></td>
       <td>${fmtDT(r.last_updated_at || r.timestamp)}</td>
-      <td>
-        <button type="button" class="btn small open" data-idx="${idx}" onclick="OW.openByIdx(${idx});return false;">Open</button>
-      </td>`;
+      <td><button type="button" class="btn small open" data-idx="${idx}" onclick="OW.openByIdx(${idx});return false;">Open</button></td>`;
     tb.appendChild(tr);
   });
 }
@@ -297,6 +310,7 @@ async function openTicketByIndex(idx){
   current = row;
 
   // populate drawer
+  document.getElementById('d_title').textContent = `Ticket ${row.ticket_id || ''}`;
   document.getElementById('d_tid').textContent = row.ticket_id || '(no id)';
   document.getElementById('d_status').value = row.status || 'Open';
   document.getElementById('d_assigned').value = row.assigned_to || '';
@@ -306,7 +320,6 @@ async function openTicketByIndex(idx){
   document.getElementById('d_addr').textContent = displayAddress(row);
   document.getElementById('d_desc').textContent = row.description || '';
 
-  // requester
   document.getElementById('d_rname').textContent = row.reporter_name || '—';
   const em = row.reporter_email || '';
   const a = document.getElementById('d_remail');
@@ -314,14 +327,12 @@ async function openTicketByIndex(idx){
   a.href = em ? `mailto:${em}` : '#';
   document.getElementById('d_rphone').textContent = row.reporter_phone || '—';
 
-  // show drawer immediately
+  // show drawer immediately (no waiting)
   openDrawer();
 
-  // show a lightweight placeholder while timeline loads
+  // show lightweight placeholder then load timeline
   const tbox = document.getElementById('timeline');
   tbox.innerHTML = '<div class="muted">Loading timeline…</div>';
-
-  // now load timeline in the background (non-blocking)
   loadTimeline(row.ticket_id || '');
 }
 
