@@ -54,6 +54,7 @@
   #drawer.show{opacity:1;pointer-events:auto}
   #drawer_backdrop{position:absolute;inset:0;background:rgba(0,0,0,.28)}
   #drawer_panel{position:absolute;right:0;top:0;bottom:0;width:min(560px,100%);background:#fff;border-left:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .debugline{margin-left:12px;color:#64748b;font-size:.85rem}
 </style>
 </head>
 <body>
@@ -61,11 +62,16 @@
   <div class="brand">
     <img alt="Seal" src="https://upload.wikimedia.org/wikipedia/commons/2/27/Seal_of_Sutton%2C_Massachusetts.png?20231220025329">
     <strong>OpenWorks Admin</strong>
+    <span id="debug" class="debugline"></span>
   </div>
 
-  <!-- AUTH: Google button always visible in this container -->
+  <!-- AUTH -->
   <div class="row" id="authRow">
-    <div id="gsi" style="min-width:200px; min-height:40px; display:inline-block"></div>
+    <!-- 1) Always-visible fallback button -->
+    <button id="fallbackSignIn" class="btn">Sign in</button>
+    <!-- 2) Official Google button mounts here (shown when script loads) -->
+    <div id="gsi" style="min-width:200px; min-height:40px; display:none"></div>
+    <!-- 3) Signed-in chip + sign-out -->
     <span id="me" class="chip" style="display:none"></span>
     <button id="signout" class="ghost" style="display:none">Sign out</button>
   </div>
@@ -138,15 +144,8 @@
         <div><div class="muted">Updated</div><div id="d_updated"></div></div>
       </div>
 
-      <div style="margin-top:6px">
-        <div class="muted">Address</div>
-        <div id="d_addr"></div>
-      </div>
-
-      <div style="margin-top:6px">
-        <div class="muted">Description</div>
-        <div id="d_desc"></div>
-      </div>
+      <div style="margin-top:6px"><div class="muted">Address</div><div id="d_addr"></div></div>
+      <div style="margin-top:6px"><div class="muted">Description</div><div id="d_desc"></div></div>
 
       <hr style="border:none;border-top:1px solid var(--border)">
 
@@ -167,20 +166,17 @@
       <div class="card" style="padding:12px">
         <strong>Add Note / Update</strong>
         <p class="muted" style="margin:.4rem 0 1rem">Internal notes are visible to staff only. Public updates may be emailed to the resident.</p>
-
         <div style="display:grid; gap:14px; grid-template-columns:1fr 1fr; align-items:start">
           <div>
             <label for="n_staff"><b>Internal note (staff only)</b></label>
             <textarea id="n_staff" placeholder="e.g., Called contractor; scheduled for next week" style="width:100%;min-height:96px"></textarea>
           </div>
-
           <div>
             <label for="n_public"><b>Public update</b></label>
             <textarea id="n_public" placeholder="e.g., Crew dispatched; expect repair within 48 hours" style="width:100%;min-height:96px"></textarea>
             <label class="row" style="margin-top:6px"><input type="checkbox" id="n_email"> Email resident this public update</label>
           </div>
         </div>
-
         <div class="row" style="margin-top:10px">
           <button class="btn" id="post" type="button">Post update</button>
           <span class="badge" id="post_spin" style="display:none">Posting…</span>
@@ -205,7 +201,7 @@ const API = 'https://script.google.com/macros/s/AKfycbwgL8hpjAivoSEvDYE61lrLbw8F
 const CLIENT_ID = '1053304257177-58btmvppdko26jhe3j70959e0gnodivt.apps.googleusercontent.com';
 const TOK_KEY = 'ow_id_token';
 
-let idToken=null, dataset=[], current=null;
+let idToken=null, dataset=[], current=null, gsiLoaded=false;
 
 /* ===== Helpers ===== */
 const $ = (s)=>document.querySelector(s);
@@ -215,10 +211,10 @@ function showError(msg){ const e=$('#err'); e.textContent=msg; e.style.display='
 function clearError(){ const e=$('#err'); e.textContent=''; e.style.display='none'; }
 function openDrawer(){ const d=$('#drawer'); d.classList.add('show'); d.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
 function closeDrawer(){ const d=$('#drawer'); d.classList.remove('show'); d.setAttribute('aria-hidden','true'); document.body.style.overflow=''; current=null; }
-
-function setToken(tok){ idToken=tok; try{ localStorage.setItem(TOK_KEY, tok||''); }catch(_){} }
+function setToken(tok){ idToken=tok; try{ localStorage.setItem(TOK_KEY, tok||''); }catch(_){}; renderAuthUI(); }
 function getSavedToken(){ try{ return localStorage.getItem(TOK_KEY)||''; }catch(_){ return ''; }
 function decodeEmailFromToken(tok){ try{ return JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).email || ''; } catch { return ''; } }
+function setDebug(){ const email = idToken? decodeEmailFromToken(idToken):''; $('#debug').textContent = `GSI: ${gsiLoaded?'loaded':'not loaded'} • Token: ${idToken?'yes':'no'}${email?(' • '+email):''}`; }
 
 /* ===== Filters ===== */
 ['q','qs','qc'].forEach(id=>{
@@ -324,6 +320,7 @@ async function openTicketByIndex(idx){
 /* ===== Load data ===== */
 async function refresh(){
   clearError();
+  setDebug();
   if(!idToken){
     $('#empty').style.display='block';
     $('#count').textContent='—';
@@ -488,7 +485,7 @@ async function plotMap(){
   }catch(_){}
 }
 
-/* ===== Auth UI (Google button always visible) ===== */
+/* ===== Auth UI (with watchdog) ===== */
 function renderAuthUI(){
   const email = idToken ? decodeEmailFromToken(idToken) : '';
   const me = document.getElementById('me');
@@ -503,36 +500,66 @@ function renderAuthUI(){
     signout.style.display='none';
     document.getElementById('empty').textContent='Sign in to load tickets.';
   }
+  setDebug();
 }
 document.getElementById('signout').addEventListener('click', ()=>{
-  setToken(''); renderAuthUI();
-  document.getElementById('rows').innerHTML=''; document.getElementById('count').textContent='—'; document.getElementById('empty').style.display='block';
+  setToken(''); document.getElementById('rows').innerHTML=''; document.getElementById('count').textContent='—'; document.getElementById('empty').style.display='block';
 });
 
-/* Initialize GSI and render button ASAP, keep container visible always */
-function initGSI(){
-  if(!(window.google && google.accounts && google.accounts.id)){
-    setTimeout(initGSI, 150); return;
+/* Fallback sign-in (works when GSI exists; otherwise shows a help banner) */
+document.getElementById('fallbackSignIn').addEventListener('click', ()=>{
+  if(window.google && google.accounts && google.accounts.id){
+    google.accounts.id.prompt();
+  }else{
+    showError('Google sign-in script is blocked or still loading. Allow https://accounts.google.com and ensure your OAuth Client’s Authorized JavaScript origin includes https://openworks.suttonma.gov . Then refresh.');
   }
-  google.accounts.id.initialize({
-    client_id: CLIENT_ID,
-    callback: (resp)=>{ setToken(resp.credential); renderAuthUI(); refresh().then(()=>{ensureMap(); plotMap();}); }
-  });
-  const gsiEl = document.getElementById('gsi');
-  gsiEl.innerHTML = ''; // ensure clean mount
-  google.accounts.id.renderButton(gsiEl, { theme:'outline', size:'large' });
+});
 
-  // If a token already exists, use it (button remains visible)
-  const saved = getSavedToken();
-  if(saved){ setToken(saved); renderAuthUI(); refresh().then(()=>{ensureMap(); plotMap();}); }
+/* Initialize GSI, render official button, and add a watchdog */
+function initGSI(){
+  const gsiBox = document.getElementById('gsi');
+  const fb = document.getElementById('fallbackSignIn');
+
+  const tryInit = () => {
+    if(!(window.google && google.accounts && google.accounts.id)){ return false; }
+    gsiLoaded = true;
+    google.accounts.id.initialize({
+      client_id: CLIENT_ID,
+      callback: (resp)=>{ setToken(resp.credential); refresh().then(()=>{ensureMap(); plotMap();}); }
+    });
+    gsiBox.style.display='inline-block';
+    gsiBox.innerHTML='';
+    google.accounts.id.renderButton(gsiBox, { theme:'outline', size:'large' });
+    fb.style.display='none'; // hide fallback once official button is ready
+    setDebug();
+    // use saved token if present
+    const saved = getSavedToken();
+    if(saved){ setToken(saved); refresh().then(()=>{ensureMap(); plotMap();}); }
+    return true;
+  };
+
+  // Attempt now, then keep trying briefly
+  if(!tryInit()){
+    let tries = 0;
+    const t = setInterval(()=>{
+      tries++;
+      if(tryInit()) { clearInterval(t); }
+      if(tries>=20){ // ~3s watchdog
+        clearInterval(t);
+        setDebug();
+        showError('Google sign-in failed to initialize. Check that the browser allows scripts from accounts.google.com, the page is served over HTTPS, and your OAuth Client has Authorized JavaScript origin: https://openworks.suttonma.gov');
+      }
+    }, 150);
+  }
 }
 
 /* Boot */
 window.addEventListener('DOMContentLoaded', ()=>{
-  const saved = getSavedToken();
-  if(saved) setToken(saved);
+  const saved = getSavedToken(); if(saved) setToken(saved);
   renderAuthUI();
   initGSI();
+  // If already signed in, load immediately
+  if(idToken){ refresh().then(()=>{ensureMap(); plotMap();}); }
 });
 </script>
 </body>
