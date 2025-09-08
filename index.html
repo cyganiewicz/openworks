@@ -4,15 +4,11 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OpenWorks — Report an Issue</title>
-<meta name="color-scheme" content="light dark">
 <style>
   :root{
     --bg:#f7f9fc; --card:#ffffff; --ink:#0e1116; --muted:#5a6a72; --border:#e6ebf2;
     --brand:#2e7d32; --brand-ink:#ffffff; --danger:#c92a2a; --focus:#0ea5e9; --badge:#f1f5f9;
     --shadow: 0 10px 30px rgba(18, 38, 63, .08);
-  }
-  @media (prefers-color-scheme:dark){
-    :root{ --bg:#0b0d11; --card:#12151b; --ink:#e9eef7; --muted:#8897a5; --border:#263042; --brand:#2ecc71; --brand-ink:#082d1b; --danger:#ff6b6b; --focus:#7cd2ff; --badge:#0f172a; --shadow: 0 10px 30px rgba(0,0,0,.4);}
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -167,7 +163,7 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbwgL8hpjAivoSEvDYE61lrLbw8FkBKcylJZxK-e17456wFFDWsaKhqxkFXQzCioujA/exec'; // keep your real URL here
+const API = 'https://script.google.com/macros/s/AKfycbwgL8hpjAivoSEvDYE61lrLbw8FkBKcylJZxK-e17456wFFDWsaKhqxkFXQzCioujA/exec';
 
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2800); }
 
