@@ -191,7 +191,7 @@ function openDrawer(){ const d=$('#drawer'); d.classList.add('open'); d.setAttri
 function closeDrawer(){ const d=$('#drawer'); d.classList.remove('open'); d.setAttribute('aria-hidden','true'); current=null; }
 function fmtDT(x){ if(!x) return ''; const d=new Date(x); return isNaN(d)? String(x): d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}); }
 
-// Global error toast (helps catch silent JS errors)
+// Global error toast
 window.addEventListener('error', (e)=> toast('JS error: ' + (e.message||'unknown')));
 
 // persist token
@@ -287,7 +287,7 @@ function displayAddress(r){
   return '—';
 }
 
-// open by index (with guard)
+// === open by index: OPEN FIRST, then load timeline (non-blocking) ===
 async function openTicketByIndex(idx){
   if(!Array.isArray(dataset) || idx < 0 || idx >= dataset.length){
     toast('Row not found (dataset len: ' + (dataset?dataset.length:0) + ')');
@@ -314,8 +314,15 @@ async function openTicketByIndex(idx){
   a.href = em ? `mailto:${em}` : '#';
   document.getElementById('d_rphone').textContent = row.reporter_phone || '—';
 
-  await loadTimeline(row.ticket_id || '');
+  // show drawer immediately
   openDrawer();
+
+  // show a lightweight placeholder while timeline loads
+  const tbox = document.getElementById('timeline');
+  tbox.innerHTML = '<div class="muted">Loading timeline…</div>';
+
+  // now load timeline in the background (non-blocking)
+  loadTimeline(row.ticket_id || '');
 }
 
 // data load
@@ -340,25 +347,29 @@ document.getElementById('refresh').addEventListener('click', refresh);
 
 // timeline
 async function loadTimeline(tid){
-  const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_activity', id_token:idToken, ticket_id: tid})});
-  const data=await res.json();
-  const box=$('#timeline'); box.innerHTML='';
-  if(!data.ok){ box.textContent='Could not load timeline'; return; }
-  (data.rows||[]).forEach(evt=>{
-    const div=document.createElement('div');
-    div.style.border='1px solid var(--border)'; div.style.borderRadius='12px'; div.style.padding='10px';
-    div.innerHTML=`
-      <div class="row" style="justify-content:space-between">
-        <div><b>${evt.action}</b> • <span class="muted">${evt.actor||''}</span></div>
-        <div class="muted">${fmtDT(evt.timestamp)}</div>
-      </div>
-      ${evt.status?(`<div class="muted" style="margin-top:6px">Status: ${evt.status}</div>`):''}
-      ${evt.public_update?(`<div style="margin-top:6px"><b>Public update</b><div>${evt.public_update}</div></div>`):''}
-      ${evt.staff_note?(`<div style="margin-top:6px"><b>Staff note</b><div>${evt.staff_note}</div></div>`):''}
-      ${evt.emailed_resident?(`<div class="muted" style="margin-top:6px">Resident emailed ✓</div>`):''}
-    `;
-    box.appendChild(div);
-  });
+  try{
+    const res=await fetch(API,{method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({action:'admin_activity', id_token:idToken, ticket_id: tid})});
+    const data=await res.json();
+    const box=$('#timeline'); box.innerHTML='';
+    if(!data.ok){ box.textContent='Could not load timeline'; return; }
+    (data.rows||[]).forEach(evt=>{
+      const div=document.createElement('div');
+      div.style.border='1px solid var(--border)'; div.style.borderRadius='12px'; div.style.padding='10px';
+      div.innerHTML=`
+        <div class="row" style="justify-content:space-between">
+          <div><b>${evt.action}</b> • <span class="muted">${evt.actor||''}</span></div>
+          <div class="muted">${fmtDT(evt.timestamp)}</div>
+        </div>
+        ${evt.status?(`<div class="muted" style="margin-top:6px">Status: ${evt.status}</div>`):''}
+        ${evt.public_update?(`<div style="margin-top:6px"><b>Public update</b><div>${evt.public_update}</div></div>`):''}
+        ${evt.staff_note?(`<div style="margin-top:6px"><b>Staff note</b><div>${evt.staff_note}</div></div>`):''}
+        ${evt.emailed_resident?(`<div class="muted" style="margin-top:6px">Resident emailed ✓</div>`):''}
+      `;
+      box.appendChild(div);
+    });
+  }catch(err){
+    $('#timeline').textContent = 'Timeline failed to load.';
+  }
 }
 
 // save
