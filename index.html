@@ -9,15 +9,10 @@
     <!-- Leaflet.js for the interactive map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <!-- Leaflet Geocoder Plugin for address search -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         #map { height: 400px; }
-        .leaflet-container { border-radius: 0.5rem; }
-        .leaflet-control-geocoder { width: 100%; max-width: 400px; margin: 10px; }
-        .leaflet-control-geocoder-form input { height: 40px; border-radius: 0.375rem; border: 1px solid #D1D5DB; }
+        .leaflet-container { border-radius: 0.5rem; z-index: 0; }
         /* Style for file input and preview */
         #image-preview-container { display: none; }
         #image-preview { max-height: 150px; border-radius: 0.5rem; }
@@ -87,7 +82,13 @@
                 <!-- Location Section -->
                 <div>
                     <h2 class="text-xl font-semibold mb-4">Location of Issue</h2>
-                    <p class="text-gray-600 mb-3">Use the search bar on the map to find an address, then click or drag the pin to refine the location.</p>
+                    <!-- New Address Search Bar -->
+                    <div class="relative mb-4">
+                        <label for="address-search" class="block text-sm font-medium text-gray-700 mb-1">Search for an Address</label>
+                        <input type="text" id="address-search" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., 4 UXBRIDGE RD, SUTTON, MA">
+                        <div id="address-suggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 shadow-lg" style="display: none;"></div>
+                    </div>
+                    <p class="text-gray-600 mb-3 text-sm">Or, click or drag the pin on the map to set the exact location.</p>
                     <div id="map"></div>
                     <input type="hidden" id="latitude" name="latitude" required>
                     <input type="hidden" id="longitude" name="longitude" required>
@@ -130,22 +131,55 @@
         map.on('click', e => updateCoordinates(e.latlng));
         marker.on('dragend', e => updateCoordinates(marker.getLatLng()));
 
-        // Address Autocomplete Search
-        const geocoder = L.Control.geocoder({
-            defaultMarkGeocode: false,
-            geocoder: L.Control.Geocoder.nominatim({
-                viewbox: [-71.84, 42.08, -71.70, 42.20],
-                bounded: 1
-            }),
-            placeholder: 'Search for an address...',
-            collapsed: false,
-        }).addTo(map);
-        
-        geocoder.on('markgeocode', e => {
-            const latlng = e.geocode.center;
-            map.setView(latlng, 18);
-            updateCoordinates(latlng);
+        // --- New Address Search Logic ---
+        const addressSearch = document.getElementById('address-search');
+        const addressSuggestions = document.getElementById('address-suggestions');
+        let searchTimeout;
+
+        addressSearch.addEventListener('keyup', () => {
+            clearTimeout(searchTimeout);
+            const query = addressSearch.value;
+            if (query.length < 3) {
+                addressSuggestions.style.display = 'none';
+                return;
+            }
+            searchTimeout = setTimeout(() => {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&viewbox=-71.84,42.08,-71.70,42.20&bounded=1`)
+                    .then(response => response.json())
+                    .then(data => displaySuggestions(data))
+                    .catch(error => console.error('Address search failed:', error));
+            }, 500); // Debounce API calls
         });
+        
+        function displaySuggestions(suggestions) {
+            addressSuggestions.innerHTML = '';
+            if (suggestions.length === 0) {
+                addressSuggestions.style.display = 'none';
+                return;
+            }
+            suggestions.slice(0, 5).forEach(suggestion => { // Show top 5
+                const div = document.createElement('div');
+                div.innerHTML = suggestion.display_name;
+                div.className = 'p-2 hover:bg-gray-100 cursor-pointer';
+                div.onclick = () => {
+                    const latlng = L.latLng(suggestion.lat, suggestion.lon);
+                    map.setView(latlng, 18);
+                    updateCoordinates(latlng);
+                    addressSearch.value = suggestion.display_name;
+                    addressSuggestions.style.display = 'none';
+                };
+                addressSuggestions.appendChild(div);
+            });
+            addressSuggestions.style.display = 'block';
+        }
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!addressSearch.contains(event.target)) {
+                addressSuggestions.style.display = 'none';
+            }
+        });
+
 
         // Image Upload Handling
         const imageInput = document.getElementById('issueImage');
@@ -156,10 +190,9 @@
         imageInput.addEventListener('change', function() {
             const file = this.files[0];
             if (file) {
-                // Check file size (e.g., limit to 5MB)
                 if(file.size > 5 * 1024 * 1024){
                     displayMessage('Image file is too large. Please upload an image under 5MB.', 'error');
-                    imageInput.value = ""; // Clear the selected file
+                    imageInput.value = "";
                     return;
                 }
                 const reader = new FileReader();
@@ -200,8 +233,8 @@
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const base64Data = e.target.result.split(',');
-                    data.imageData = base64Data[1]; // The actual base64 string
-                    data.mimeType = base64Data[0].match(/:(.*?);/)[1]; // e.g., "image/jpeg"
+                    data.imageData = base64Data[1];
+                    data.mimeType = base64Data[0].match(/:(.*?);/)[1];
                     sendData(data);
                 };
                 reader.onerror = function(error) {
@@ -222,7 +255,6 @@
                 method: 'POST',
                 mode: 'cors',
                 cache: 'no-cache',
-                // Change Content-Type to avoid a CORS preflight request that can fail.
                 headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
                 body: JSON.stringify(data),
             })
@@ -231,7 +263,8 @@
                 if (result.result === 'success') {
                     displayMessage('Thank you! Your request has been submitted successfully.', 'success');
                     form.reset();
-                    removeImageBtn.click(); // Reset image preview
+                    addressSearch.value = ''; // Clear search bar
+                    removeImageBtn.click();
                     updateCoordinates(L.latLng(suttonCoords));
                     map.setView(suttonCoords, 13);
                 } else {
