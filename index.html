@@ -49,6 +49,23 @@
         .file-input-preview-item:hover .remove-btn {
             opacity: 1;
         }
+        .location-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            background-color: #f9fafb;
+            color: #374151;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .location-btn:hover {
+            background-color: #f3f4f6;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -57,7 +74,8 @@
         <!-- New Professional Header -->
         <header class="bg-white rounded-xl shadow-md p-6 mb-8">
             <div class="flex items-center space-x-4">
-                <img src="https://github.com/cyganiewicz/openworks/blob/5138bca25fec9024defc04d4d787ee6c5df3afd7/Sutton%20Town%20Seal%20Clean.png" alt="Town of Sutton Seal" class="h-20 w-20">
+                <!-- CORRECTED TOWN SEAL URL -->
+                <img src="https://raw.githubusercontent.com/cyganiewicz/openworks/main/Sutton%20Town%20Seal%20Clean.png" alt="Town of Sutton Seal" class="h-20 w-20">
                 <div>
                     <h1 class="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">Public Works Request</h1>
                     <p class="text-gray-600 mt-1">Town of Sutton, Massachusetts</p>
@@ -123,10 +141,16 @@
                     <section>
                         <h2 class="text-xl font-semibold mb-4 border-b pb-2">3. Location of Issue</h2>
                         <div class="mt-4">
-                            <div class="relative mb-4">
-                                <label for="address-search" class="block text-sm font-medium text-gray-700 mb-1">Search for an Address</label>
-                                <input type="text" id="address-search" class="form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., 4 UXBRIDGE RD, SUTTON, MA">
-                                <div id="address-suggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 shadow-lg" style="display: none;"></div>
+                             <div class="flex flex-col sm:flex-row sm:items-end sm:space-x-4 mb-4">
+                                <div class="relative flex-grow">
+                                    <label for="address-search" class="block text-sm font-medium text-gray-700 mb-1">Search for an Address</label>
+                                    <input type="text" id="address-search" class="form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., 4 UXBRIDGE RD, SUTTON, MA">
+                                    <div id="address-suggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 shadow-lg" style="display: none;"></div>
+                                </div>
+                                <button type="button" id="current-location-btn" class="location-btn mt-2 sm:mt-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg>
+                                    Use My Current Location
+                                </button>
                             </div>
                             <p class="text-gray-600 mb-3 text-sm">Or, click or drag the pin on the map to set the exact location.</p>
                             <div id="map"></div>
@@ -166,6 +190,7 @@
 
         function updateCoordinates(latlng, clearTypedAddress = true) {
             marker.setLatLng(latlng);
+            map.panTo(latlng);
             latInput.value = latlng.lat.toFixed(6);
             lonInput.value = latlng.lng.toFixed(6);
             if (clearTypedAddress) {
@@ -228,12 +253,41 @@
             }
         });
 
+        // Current Location Button Logic
+        const currentLocationBtn = document.getElementById('current-location-btn');
+        currentLocationBtn.addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                displayMessage('Geolocation is not supported by your browser.', 'error');
+                return;
+            }
+            
+            currentLocationBtn.textContent = 'Getting Location...';
+            currentLocationBtn.disabled = true;
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
+                    map.setView(latlng, 18);
+                    updateCoordinates(latlng);
+                    currentLocationBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg> Use My Current Location`;
+                    currentLocationBtn.disabled = false;
+                },
+                (error) => {
+                    displayMessage('Unable to retrieve your location. Please grant permission or set it manually.', 'error');
+                    console.error("Geolocation error:", error);
+                    currentLocationBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg> Use My Current Location`;
+                    currentLocationBtn.disabled = false;
+                }
+            );
+        });
+
         // Multiple Image Upload Handling
         const imageInput = document.getElementById('issueImages');
         const previewContainer = document.getElementById('image-preview-container');
         let imageFiles = [];
 
         imageInput.addEventListener('change', function() {
+            // ... (rest of the image handling code is unchanged)
             const files = Array.from(this.files);
             if (imageFiles.length + files.length > 5) {
                 displayMessage('You can upload a maximum of 5 images.', 'error');
@@ -285,6 +339,7 @@
         const messageContainer = document.getElementById('message-container');
 
         form.addEventListener('submit', async function(e) {
+             // ... (rest of the form submission code is unchanged)
             e.preventDefault();
             if (WEB_APP_URL === 'PASTE_YOUR_URL_HERE') {
                 displayMessage('Form is not configured. Please contact the site administrator.', 'error');
