@@ -79,8 +79,8 @@
 
     <script>
         const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzfTDdgWq8oZAxhNs7i4QXml2SzT2RiPJaz3H5MFuVuLedoVEMLvgRypSqQDfMa8Cv3kw/exec'; 
-        const GOOGLE_CLIENT_ID = '1053304257177-g4ln0tlvreq2tn5rjrnbgcq8l610dhjd.apps.googleusercontent.com
-'; 
+        // **FIXED:** Removed the newline character from the end of the Client ID string.
+        const GOOGLE_CLIENT_ID = '1053304257177-g4ln0tlvreq2tn5rjrnbgcq8l610dhjd.apps.googleusercontent.com';
 
         const signInView = document.getElementById('sign-in-view');
         const accessDeniedView = document.getElementById('access-denied-view');
@@ -115,10 +115,9 @@
             idToken = response.credential;
 
             try {
-                // **UPDATED FETCH CALL**
                 const verificationResponse = await fetch(`${WEB_APP_URL}?action=getData`, {
                     method: 'GET',
-                    mode: 'cors', // Explicitly set CORS mode
+                    mode: 'cors',
                     headers: { 'Authorization': `Bearer ${idToken}` }
                 });
 
@@ -201,7 +200,7 @@
                 try {
                     const response = await fetch(WEB_APP_URL, {
                         method: 'POST',
-                        mode: 'cors', // Explicitly set CORS mode
+                        mode: 'cors',
                         headers: { 
                             'Content-Type': 'text/plain;charset=UTF-8',
                             'Authorization': `Bearer ${idToken}`
