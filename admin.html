@@ -114,15 +114,21 @@
             idToken = response.credential;
 
             try {
-                const verificationResponse = await fetch(`${WEB_APP_URL}?action=getData`, {
-                    method: 'GET',
+                // **FIX:** Changed to a POST request, sending the token in the body
+                // to avoid the CORS preflight check that was causing the failure.
+                const verificationResponse = await fetch(WEB_APP_URL, {
+                    method: 'POST',
                     mode: 'cors',
-                    headers: { 'Authorization': `Bearer ${idToken}` }
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify({ 
+                        action: 'getAdminData', 
+                        token: idToken 
+                    })
                 });
 
                 const responseBody = await verificationResponse.json();
 
-                if (!verificationResponse.ok) {
+                if (!verificationResponse.ok || responseBody.result === 'error') {
                     throw new Error(responseBody.error || `Server responded with status ${verificationResponse.status}`);
                 }
 
@@ -137,8 +143,6 @@
 
             } catch (error) {
                 console.error("Authentication/Fetch error:", error);
-                // **FIX:** Removed the automatic signOut() call to prevent the loop.
-                // Now, it will just display the error and stop.
                 if (error.message.includes("authorized")) {
                     accessDeniedMessage.textContent = error.message;
                     showAccessDenied();
@@ -198,14 +202,17 @@
                 selectElement.disabled = true;
                 
                 try {
+                    // **FIX:** Sending token in the body for status updates as well.
                     const response = await fetch(WEB_APP_URL, {
                         method: 'POST',
                         mode: 'cors',
-                        headers: { 
-                            'Content-Type': 'text/plain;charset=UTF-8',
-                            'Authorization': `Bearer ${idToken}`
-                        },
-                        body: JSON.stringify({ action: 'updateStatus', workOrderId, newStatus })
+                        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                        body: JSON.stringify({ 
+                            action: 'updateStatus', 
+                            token: idToken,
+                            workOrderId, 
+                            newStatus 
+                        })
                     });
                     const result = await response.json();
                     if (result.result !== 'success') throw new Error(result.error || 'Update failed');
