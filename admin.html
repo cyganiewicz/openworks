@@ -55,12 +55,18 @@
             <!-- Access Denied View -->
             <div id="access-denied-view" class="hidden text-center py-10 bg-red-50 text-red-700 rounded-lg">
                 <p class="font-semibold">Access Denied</p>
-                <p class="text-sm mt-1">The account you signed in with is not authorized to access this portal.</p>
+                <p id="access-denied-message" class="text-sm mt-1">The account you signed in with is not authorized to access this portal.</p>
+            </div>
+            
+            <!-- General Error View -->
+            <div id="error-view" class="hidden text-center py-10 bg-red-50 text-red-700 rounded-lg">
+                <p class="font-semibold">An Error Occurred</p>
+                <p id="error-message" class="text-sm mt-1">Could not load data. See browser console for details.</p>
             </div>
 
             <!-- Loading State -->
             <div id="loading-state" class="hidden text-center py-10">
-                <p class="text-gray-600">Loading work orders...</p>
+                <p class="text-gray-600">Authenticating & Loading work orders...</p>
             </div>
 
             <!-- Data Table View -->
@@ -92,9 +98,11 @@
         const GOOGLE_CLIENT_ID = '1053304257177-g4ln0tlvreq2tn5rjrnbgcq8l610dhjd.apps.googleusercontent.com'; 
 
         // DOM Elements
-        const mainContent = document.getElementById('main-content');
         const signInView = document.getElementById('sign-in-view');
         const accessDeniedView = document.getElementById('access-denied-view');
+        const accessDeniedMessage = document.getElementById('access-denied-message');
+        const errorView = document.getElementById('error-view');
+        const errorMessage = document.getElementById('error-message');
         const loadingState = document.getElementById('loading-state');
         const dataView = document.getElementById('data-view');
         const tableBody = document.getElementById('requests-tbody');
@@ -106,6 +114,10 @@
         let idToken = null;
 
         window.onload = function () {
+            if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'PASTE_YOUR_GOOGLE_CLIENT_ID_HERE') {
+                showError("Google Client ID is not configured in admin.html.");
+                return;
+            }
             google.accounts.id.initialize({
                 client_id: GOOGLE_CLIENT_ID,
                 callback: handleCredentialResponse
@@ -120,31 +132,28 @@
             signInView.classList.add('hidden');
             loadingState.classList.remove('hidden');
             
-            idToken = response.credential; // This is the JWT token
+            idToken = response.credential;
 
             try {
-                // Verify token and fetch data
                 const verificationResponse = await fetch(`${WEB_APP_URL}?action=getData`, {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${idToken}` }
                 });
 
+                const responseBody = await verificationResponse.json();
+
                 if (verificationResponse.status === 403) {
-                    throw new Error('Access Denied: User not authorized.');
+                    throw new Error(`Access Denied: ${responseBody.error || 'User not authorized.'}`);
                 }
                 if (!verificationResponse.ok) {
-                    throw new Error(`Server error: ${verificationResponse.statusText}`);
+                    throw new Error(`Server error (${verificationResponse.status}): ${responseBody.error || verificationResponse.statusText}`);
                 }
 
-                const data = await verificationResponse.json();
-                if (data.error) throw new Error(data.error);
-                
-                // Decode JWT to get user email for display
                 const payload = JSON.parse(atob(idToken.split('.')[1]));
                 userEmail.textContent = payload.email;
                 userInfo.classList.remove('hidden');
 
-                allRequests = data.reverse();
+                allRequests = responseBody.reverse();
                 renderTable(allRequests);
 
                 loadingState.classList.add('hidden');
@@ -152,11 +161,31 @@
 
             } catch (error) {
                 console.error("Authentication/Fetch error:", error);
-                loadingState.classList.add('hidden');
-                accessDeniedView.classList.remove('hidden');
+                if (error.message.includes('Access Denied')) {
+                    accessDeniedMessage.textContent = error.message;
+                    showAccessDenied();
+                } else {
+                    errorMessage.textContent = error.message;
+                    showError(error.message);
+                }
                 signOut();
             }
         }
+        
+        function showError(message) {
+            loadingState.classList.add('hidden');
+            signInView.classList.add('hidden');
+            errorMessage.textContent = message;
+            errorView.classList.remove('hidden');
+        }
+
+        function showAccessDenied() {
+            loadingState.classList.add('hidden');
+            signInView.classList.add('hidden');
+            accessDeniedView.classList.remove('hidden');
+        }
+
+        // The renderTable and tableBody event listener functions remain the same...
 
         function renderTable(requests) {
             tableBody.innerHTML = '';
@@ -168,16 +197,16 @@
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-gray-50';
                 row.innerHTML = `
-                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${req.workOrderId}</td>
-                    <td class="px-4 py-3 text-sm text-gray-500 truncate">${req.address}</td>
-                    <td class="px-4 py-3 text-sm text-gray-500">${req.requestType}</td>
-                    <td class="px-4 py-3 text-sm text-gray-500">${new Date(req.timestamp).toLocaleDateString()}</td>
+                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${req.WorkOrderID}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500 truncate">${req.Address}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${req.RequestType}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${new Date(req.Timestamp).toLocaleDateString()}</td>
                     <td class="px-4 py-3 text-sm text-gray-500">
-                        <select class="status-select border-gray-300 rounded-md shadow-sm w-full" data-wo-id="${req.workOrderId}" data-original-status="${req.status}">
-                            <option value="Submitted" ${req.status === 'Submitted' ? 'selected' : ''}>Submitted</option>
-                            <option value="In Progress" ${req.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                            <option value="Completed" ${req.status === 'Completed' ? 'selected' : ''}>Completed</option>
-                            <option value="On Hold" ${req.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
+                        <select class="status-select border-gray-300 rounded-md shadow-sm w-full" data-wo-id="${req.WorkOrderID}" data-original-status="${req.Status}">
+                            <option value="Submitted" ${req.Status === 'Submitted' ? 'selected' : ''}>Submitted</option>
+                            <option value="In Progress" ${req.Status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                            <option value="Completed" ${req.Status === 'Completed' ? 'selected' : ''}>Completed</option>
+                            <option value="On Hold" ${req.Status === 'On Hold' ? 'selected' : ''}>On Hold</option>
                         </select>
                     </td>
                 `;
@@ -232,6 +261,7 @@
             google.accounts.id.disableAutoSelect();
             dataView.classList.add('hidden');
             accessDeniedView.classList.add('hidden');
+            errorView.classList.add('hidden');
             userInfo.classList.add('hidden');
             signInView.classList.remove('hidden');
         }
@@ -239,9 +269,9 @@
         filterInput.addEventListener('keyup', () => {
             const searchTerm = filterInput.value.toLowerCase();
             const filteredRequests = allRequests.filter(req => 
-                req.workOrderId.toLowerCase().includes(searchTerm) ||
-                req.address.toLowerCase().includes(searchTerm) ||
-                req.requestType.toLowerCase().includes(searchTerm)
+                req.WorkOrderID.toLowerCase().includes(searchTerm) ||
+                req.Address.toLowerCase().includes(searchTerm) ||
+                req.RequestType.toLowerCase().includes(searchTerm)
             );
             renderTable(filteredRequests);
         });
