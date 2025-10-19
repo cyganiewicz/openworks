@@ -6,7 +6,6 @@
     <title>Sutton Works - Admin Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .table-fixed { table-layout: fixed; }
@@ -24,147 +23,136 @@
                         <p class="text-gray-600 mt-1">Sutton Highway Department</p>
                     </div>
                 </div>
-                <div id="user-info" class="hidden text-right">
-                    <p id="user-email" class="text-sm text-gray-600 font-medium"></p>
-                    <button id="sign-out-button" class="text-sm text-blue-600 hover:underline">Sign Out</button>
+                 <div id="logout-section" class="hidden">
+                    <button id="logout-button" class="text-sm text-blue-600 hover:underline">Log Out</button>
                 </div>
             </div>
         </header>
 
         <main id="main-content" class="bg-white p-6 md:p-8 rounded-xl shadow-md">
-            <div id="sign-in-view">
-                <div class="text-center py-10">
+            <!-- Password View -->
+            <div id="password-view">
+                <form id="password-form" class="text-center py-10">
                     <h2 class="text-xl font-semibold mb-4">Admin Access Required</h2>
-                    <p class="text-gray-600 mb-6">Please sign in with your authorized Google account.</p>
-                    <div id="google-signin-button" class="flex justify-center"></div>
-                </div>
+                    <p class="text-gray-600 mb-6">Please enter the password to manage work orders.</p>
+                    <div class="max-w-xs mx-auto">
+                        <input type="password" id="password-input" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+                        <button type="submit" class="w-full mt-4 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">
+                            Submit
+                        </button>
+                    </div>
+                </form>
             </div>
 
-            <div id="access-denied-view" class="hidden text-center py-10 bg-red-50 text-red-700 rounded-lg">
-                <p class="font-semibold">Access Denied</p>
-                <p id="access-denied-message" class="text-sm mt-1"></p>
-            </div>
-            
             <div id="error-view" class="hidden text-center py-10 bg-red-50 text-red-700 rounded-lg">
                 <p class="font-semibold">An Error Occurred</p>
                 <p id="error-message" class="text-sm mt-1"></p>
             </div>
 
             <div id="loading-state" class="hidden text-center py-10">
-                <p class="text-gray-600">Authenticating & Loading work orders...</p>
+                <p class="text-gray-600">Loading work orders...</p>
             </div>
 
+            <!-- Data View -->
             <div id="data-view" class="hidden">
                  <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold">All Requests</h2>
-                    <input type="text" id="filter-input" placeholder="Filter requests..." class="w-1/2 md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 table-fixed">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="w-24 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">WO ID</th>
-                                <th class="w-48 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
-                                <th class="w-40 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Request Type</th>
-                                <th class="w-32 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
-                                <th class="w-40 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="requests-tbody" class="bg-white divide-y divide-gray-200"></tbody>
-                    </table>
-                </div>
+                     <h2 class="text-xl font-semibold">All Requests</h2>
+                     <input type="text" id="filter-input" placeholder="Filter requests..." class="w-1/2 md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                 </div>
+                 <div class="overflow-x-auto">
+                     <table class="min-w-full divide-y divide-gray-200 table-fixed">
+                         <thead class="bg-gray-50">
+                             <tr>
+                                 <th class="w-24 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">WO ID</th>
+                                 <th class="w-48 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
+                                 <th class="w-40 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Request Type</th>
+                                 <th class="w-32 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
+                                 <th class="w-40 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                             </tr>
+                         </thead>
+                         <tbody id="requests-tbody" class="bg-white divide-y divide-gray-200"></tbody>
+                     </table>
+                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzfTDdgWq8oZAxhNs7i4QXml2SzT2RiPJaz3H5MFuVuLedoVEMLvgRypSqQDfMa8Cv3kw/exec'; 
-        const GOOGLE_CLIENT_ID = '1053304257177-g4ln0tlvreq2tn5rjrnbgcq8l610dhjd.apps.googleusercontent.com';
+        const WEB_APP_URL = 'PASTE_YOUR_NEW_WEB_APP_URL_HERE'; 
 
-        const signInView = document.getElementById('sign-in-view');
-        const accessDeniedView = document.getElementById('access-denied-view');
-        const accessDeniedMessage = document.getElementById('access-denied-message');
+        const passwordView = document.getElementById('password-view');
+        const passwordForm = document.getElementById('password-form');
+        const passwordInput = document.getElementById('password-input');
         const errorView = document.getElementById('error-view');
         const errorMessage = document.getElementById('error-message');
         const loadingState = document.getElementById('loading-state');
         const dataView = document.getElementById('data-view');
         const tableBody = document.getElementById('requests-tbody');
         const filterInput = document.getElementById('filter-input');
-        const userInfo = document.getElementById('user-info');
-        const userEmail = document.getElementById('user-email');
-        const signOutButton = document.getElementById('sign-out-button');
+        const logoutSection = document.getElementById('logout-section');
+        const logoutButton = document.getElementById('logout-button');
+
         let allRequests = [];
-        let idToken = null;
+        let adminPassword = null;
 
-        window.onload = function () {
-            if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'PASTE_YOUR_GOOGLE_CLIENT_ID_HERE') {
-                showError("Google Client ID is not configured in admin.html.");
-                return;
-            }
-            google.accounts.id.initialize({
-                client_id: GOOGLE_CLIENT_ID,
-                callback: handleCredentialResponse
-            });
-            google.accounts.id.renderButton(document.getElementById('google-signin-button'), { theme: "outline", size: "large" });
-        };
+        // Check if user is already "logged in" from session storage
+        if (sessionStorage.getItem('adminPassword')) {
+            adminPassword = sessionStorage.getItem('adminPassword');
+            passwordView.classList.add('hidden');
+            fetchData();
+        }
 
-        async function handleCredentialResponse(response) {
-            signInView.classList.add('hidden');
+        passwordForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            adminPassword = passwordInput.value;
+            passwordView.classList.add('hidden');
+            fetchData();
+        });
+        
+        async function fetchData() {
             loadingState.classList.remove('hidden');
-            idToken = response.credential;
+            errorView.classList.add('hidden');
+            dataView.classList.add('hidden');
 
             try {
-                // **FIX:** Changed to a POST request, sending the token in the body
-                // to avoid the CORS preflight check that was causing the failure.
-                const verificationResponse = await fetch(WEB_APP_URL, {
+                const response = await fetch(WEB_APP_URL, {
                     method: 'POST',
                     mode: 'cors',
                     headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-                    body: JSON.stringify({ 
-                        action: 'getAdminData', 
-                        token: idToken 
+                    body: JSON.stringify({
+                        action: 'getAdminData',
+                        password: adminPassword
                     })
                 });
 
-                const responseBody = await verificationResponse.json();
+                const result = await response.json();
 
-                if (!verificationResponse.ok || responseBody.result === 'error') {
-                    throw new Error(responseBody.error || `Server responded with status ${verificationResponse.status}`);
+                if (result.error) {
+                    throw new Error(result.error);
                 }
+                
+                // Success! Store password in session storage
+                sessionStorage.setItem('adminPassword', adminPassword);
 
-                const payload = JSON.parse(atob(idToken.split('.')[1]));
-                userEmail.textContent = payload.email;
-                userInfo.classList.remove('hidden');
-
-                allRequests = (responseBody || []).reverse();
+                allRequests = (result || []).reverse();
                 renderTable(allRequests);
                 loadingState.classList.add('hidden');
                 dataView.classList.remove('hidden');
+                logoutSection.classList.remove('hidden');
 
             } catch (error) {
-                console.error("Authentication/Fetch error:", error);
-                if (error.message.includes("authorized")) {
-                    accessDeniedMessage.textContent = error.message;
-                    showAccessDenied();
-                } else {
-                    showError(error.message);
-                }
+                console.error("Fetch error:", error);
+                showError(error.message);
+                logout(); // Clear stored password on error
             }
         }
-        
+
         function showError(message) {
             loadingState.classList.add('hidden');
-            signInView.classList.add('hidden');
             errorMessage.textContent = message;
             errorView.classList.remove('hidden');
         }
-
-        function showAccessDenied() {
-            loadingState.classList.add('hidden');
-            signInView.classList.add('hidden');
-            accessDeniedView.classList.remove('hidden');
-        }
-
+        
         function renderTable(requests) {
             tableBody.innerHTML = '';
             if (requests.length === 0) {
@@ -191,7 +179,7 @@
                 tableBody.appendChild(row);
             });
         }
-        
+
         tableBody.addEventListener('change', async (e) => {
             if (e.target.classList.contains('status-select')) {
                 const selectElement = e.target;
@@ -202,20 +190,19 @@
                 selectElement.disabled = true;
                 
                 try {
-                    // **FIX:** Sending token in the body for status updates as well.
                     const response = await fetch(WEB_APP_URL, {
                         method: 'POST',
                         mode: 'cors',
                         headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
                         body: JSON.stringify({ 
                             action: 'updateStatus', 
-                            token: idToken,
+                            password: adminPassword,
                             workOrderId, 
                             newStatus 
                         })
                     });
                     const result = await response.json();
-                    if (result.result !== 'success') throw new Error(result.error || 'Update failed');
+                    if (result.error) throw new Error(result.error);
                     
                     selectElement.dataset.originalStatus = newStatus;
                     selectElement.classList.add('bg-green-100');
@@ -232,16 +219,16 @@
             }
         });
 
-        signOutButton.addEventListener('click', () => signOut());
+        logoutButton.addEventListener('click', logout);
 
-        function signOut() {
-            idToken = null;
-            google.accounts.id.disableAutoSelect();
+        function logout() {
+            sessionStorage.removeItem('adminPassword');
+            adminPassword = null;
             dataView.classList.add('hidden');
-            accessDeniedView.classList.add('hidden');
             errorView.classList.add('hidden');
-            userInfo.classList.add('hidden');
-            signInView.classList.remove('hidden');
+            logoutSection.classList.add('hidden');
+            passwordInput.value = '';
+            passwordView.classList.remove('hidden');
         }
 
         filterInput.addEventListener('keyup', () => {
