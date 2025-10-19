@@ -79,7 +79,6 @@
 
     <script>
         const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzfTDdgWq8oZAxhNs7i4QXml2SzT2RiPJaz3H5MFuVuLedoVEMLvgRypSqQDfMa8Cv3kw/exec'; 
-        // **FIXED:** Removed the newline character from the end of the Client ID string.
         const GOOGLE_CLIENT_ID = '1053304257177-g4ln0tlvreq2tn5rjrnbgcq8l610dhjd.apps.googleusercontent.com';
 
         const signInView = document.getElementById('sign-in-view');
@@ -138,13 +137,14 @@
 
             } catch (error) {
                 console.error("Authentication/Fetch error:", error);
+                // **FIX:** Removed the automatic signOut() call to prevent the loop.
+                // Now, it will just display the error and stop.
                 if (error.message.includes("authorized")) {
                     accessDeniedMessage.textContent = error.message;
                     showAccessDenied();
                 } else {
                     showError(error.message);
                 }
-                signOut();
             }
         }
         
