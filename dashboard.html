@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sutton Works - Public Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        #map { height: 500px; z-index: 0; border-radius: 0.75rem; }
+        .kpi-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900 tracking-tight">Public Works Dashboard</h1>
+            <p class="text-gray-600 mt-2">Live look at requests across the Town of Sutton</p>
+        </header>
+
+        <!-- Loading & Error States -->
+        <div id="loading-state" class="text-center py-20">
+            <p class="text-gray-600 text-lg">Loading dashboard data...</p>
+        </div>
+        <div id="error-state" class="hidden text-center py-20 bg-red-50 text-red-700 rounded-lg">
+            <p class="font-semibold text-lg">Could not load dashboard.</p>
+            <p id="error-message" class="text-md mt-1"></p>
+        </div>
+        
+        <main id="dashboard-content" class="hidden space-y-8">
+            <!-- KPI Cards -->
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="kpi-card">
+                    <h2 class="text-lg font-medium text-gray-500">Open Requests</h2>
+                    <p id="kpi-open" class="text-5xl font-bold text-blue-600 mt-2">0</p>
+                </div>
+                <div class="kpi-card">
+                    <h2 class="text-lg font-medium text-gray-500">Completed (Last 30 Days)</h2>
+                    <p id="kpi-completed" class="text-5xl font-bold text-green-600 mt-2">0</p>
+                </div>
+                <div class="kpi-card">
+                    <h2 class="text-lg font-medium text-gray-500">Total Submitted</h2>
+                    <p id="kpi-total" class="text-5xl font-bold text-gray-800 mt-2">0</p>
+                </div>
+            </section>
+
+            <!-- Map and Chart Section -->
+            <section class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4">Request Locations</h2>
+                    <div id="map"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4">Requests by Type</h2>
+                    <canvas id="requests-chart"></canvas>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const WEB_APP_URL = 'PASTE_YOUR_URL_HERE'; 
+        const API_KEY = 'PASTE_YOUR_SECRET_API_KEY_HERE'; 
+
+        // DOM Elements
+        const loadingDiv = document.getElementById('loading-state');
+        const errorDiv = document.getElementById('error-state');
+        const errorMessage = document.getElementById('error-message');
+        const dashboardContent = document.getElementById('dashboard-content');
+
+        // Status Colors
+        const statusColors = {
+            'Submitted': '#60a5fa', // blue-400
+            'In Progress': '#f59e0b', // amber-500
+            'Completed': '#10b981', // emerald-500
+            'On Hold': '#9ca3af', // gray-400
+        };
+
+        async function initializeDashboard() {
+            try {
+                const response = await fetch(`${WEB_APP_URL}?action=getData&key=${API_KEY}`);
+                if (!response.ok) throw new Error(`Server error (status ${response.status})`);
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                displayKPIs(data);
+                initializeMap(data);
+                createChart(data);
+
+                loadingDiv.classList.add('hidden');
+                dashboardContent.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("Dashboard initialization failed:", error);
+                errorMessage.textContent = error.message;
+                loadingDiv.classList.add('hidden');
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        function displayKPIs(requests) {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            const openRequests = requests.filter(r => r.status !== 'Completed').length;
+            const completedLast30Days = requests.filter(r => r.status === 'Completed' && new Date(r.timestamp) > thirtyDaysAgo).length;
+            
+            document.getElementById('kpi-open').textContent = openRequests;
+            document.getElementById('kpi-completed').textContent = completedLast30Days;
+            document.getElementById('kpi-total').textContent = requests.length;
+        }
+
+        function initializeMap(requests) {
+            const suttonCoords = [42.1539, -71.7634];
+            const map = L.map('map').setView(suttonCoords, 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            requests.forEach(req => {
+                if (req.latitude && req.longitude) {
+                    const color = statusColors[req.status] || '#6b7280';
+                    L.circleMarker([req.latitude, req.longitude], {
+                        radius: 8,
+                        color: 'white',
+                        weight: 2,
+                        fillColor: color,
+                        fillOpacity: 0.8
+                    }).addTo(map)
+                    .bindPopup(`<b>${req.requestType}</b><br>${req.address}<br>Status: ${req.status}`);
+                }
+            });
+        }
+
+        function createChart(requests) {
+            const typeCounts = requests.reduce((acc, req) => {
+                acc[req.requestType] = (acc[req.requestType] || 0) + 1;
+                return acc;
+            }, {});
+
+            const ctx = document.getElementById('requests-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(typeCounts),
+                    datasets: [{
+                        label: 'Request Types',
+                        data: Object.values(typeCounts),
+                        backgroundColor: [
+                            '#3b82f6', '#ef4444', '#f97316', '#8b5cf6', '#14b8a6', '#6b7280'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        }
+                    }
+                }
+            });
+        }
+
+        if (WEB_APP_URL === 'PASTE_YOUR_URL_HERE' || API_KEY === 'PASTE_YOUR_SECRET_API_KEY_HERE') {
+            errorMessage.textContent = 'Dashboard is not configured. Please paste the Web App URL and API Key into the script.';
+            loadingDiv.classList.add('hidden');
+            errorDiv.classList.remove('hidden');
+        } else {
+            initializeDashboard();
+        }
+
+    </script>
+</body>
+</html>
