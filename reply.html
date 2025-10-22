@@ -19,6 +19,19 @@
     </style>
 </head>
 <body>
-    <iframe src="https://script.google.com/macros/s/AKfycbzfTDdgWq8oZAxhNs7i4QXml2SzT2RiPJaz3H5MFuVuLedoVEMLvgRypSqQDfMa8Cv3kw/exec?page=reply"></iframe>
+    <iframe id="reply-frame" src="" allow="geolocation"></iframe>
+    
+    <script>
+        // Extract the 'wo' parameter from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const workOrderId = urlParams.get('wo');
+        
+        // Build the Apps Script URL with the work order ID
+        const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzfTDdgWq8oZAxhNs7i4QXml2SzT2RiPJaz3H5MFuVuLedoVEMLvgRypSqQDfMa8Cv3kw/exec?page=reply' + 
+            (workOrderId ? '&wo=' + workOrderId : '');
+        
+        // Set the iframe source
+        document.getElementById('reply-frame').src = appsScriptUrl;
+    </script>
 </body>
 </html>
